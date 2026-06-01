@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -31,8 +31,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // /explore and /learn are public (SEO).
-  // /history, /projects, /certificate, /settings, /org-admin, /admin are gated.
+  // /explore and /course are public (SEO).
+  // Protected routes require authentication.
   const protectedRoutes = ['/admin', '/org-admin', '/history', '/projects', '/certificate', '/settings'];
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r));
 
