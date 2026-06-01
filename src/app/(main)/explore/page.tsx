@@ -69,7 +69,7 @@ export default async function ExplorePage() {
       '@type': 'ListItem',
       position: idx + 1,
       name: course.title,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL}/explore/${course.id}`,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL}/course/${course.slug}`,
     })),
   };
 
@@ -100,7 +100,7 @@ export default async function ExplorePage() {
                 return (
                   <Link
                     key={course.id}
-                    href={`/explore/${course.id}`}
+                    href={`/course/${course.slug}`}
                     className="group relative rounded-3xl border overflow-hidden hover:shadow-lg transition-all hover:-translate-y-0.5 flex flex-col"
                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-muted)' }}
                   >

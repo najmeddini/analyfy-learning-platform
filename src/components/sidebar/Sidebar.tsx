@@ -283,7 +283,7 @@ export default function Sidebar({ user, profile }: SidebarProps) {
       )}
 
       {/* Search Modal */}
-      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} user={user} />}
     </>
   );
 }

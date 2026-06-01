@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getCourses, getTopicsByCourse } from '@/lib/notion/client';
-import { formatDate } from '@/lib/utils';
+import { formatDate, makeRouteSlug } from '@/lib/utils';
 import { BookOpen, CheckCircle, Clock, FolderOpen } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -146,7 +146,7 @@ export default async function HistoryPage() {
                 return (
                   <Link
                     key={cp.courseId}
-                    href={`/explore/${cp.courseId}`}
+                    href={`/course/${makeRouteSlug(cp.courseTitle, cp.courseId)}`}
                     className="rounded-2xl border overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5"
                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-muted)' }}
                   >

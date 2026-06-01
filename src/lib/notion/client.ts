@@ -1,7 +1,7 @@
 import { Client } from '@notionhq/client';
 import type { Course, Topic, Lesson, NotionProject } from '@/types';
 import { blocksToHtml, richTextToHtml } from './blocks';
-import { slugify } from '@/lib/utils';
+import { makeRouteSlug } from '@/lib/utils';
 
 export const revalidate = parseInt(process.env.REVALIDATE_TIME || '3600', 10);
 
@@ -65,13 +65,7 @@ function getRichTextArray(prop: unknown): Array<{ plain_text: string; href?: str
   return [];
 }
 
-// ─── Slug generation ─────────────────────────────────────────────────────────
-
-/** Returns "title-slug-XXXXX" where XXXXX = first 5 chars of Notion UUID (no hyphens) */
-export function makeSlug(title: string, notionId: string): string {
-  const hash = notionId.replace(/-/g, '').slice(0, 5);
-  return `${slugify(title)}-${hash}`;
-}
+// makeRouteSlug is imported from utils — used throughout to build hierarchical URL slugs
 
 // ─── Page block fetching ──────────────────────────────────────────────────────
 
@@ -108,7 +102,9 @@ export async function getCourses(includeAll = false): Promise<Course[]> {
       return {
         id: page.id,
         title,
-        slug: explicitSlug || makeSlug(title, page.id),
+        // Always use makeRouteSlug so the ID is always resolvable from the URL.
+        // If Notion has an explicit Slug, use it as the title part; else auto-generate.
+        slug: makeRouteSlug(explicitSlug || title, page.id),
         status: 'Published' as const,
         access_type: (getSelect(props['Access_Type']) || 'Public') as Course['access_type'],
         cover_image: getText(props['Cover_Image']) || null,
@@ -134,7 +130,7 @@ export async function getTopicsByCourse(courseId: string): Promise<Topic[]> {
       return {
         id: page.id,
         title,
-        slug: explicitSlug || makeSlug(title, page.id),
+        slug: makeRouteSlug(explicitSlug || title, page.id),
         course_id: courseId,
         has_project: getCheckbox(props['Has_Project']),
         project_max_size_mb: getNumber(props['Project_Max_Size_MB']) || 5,
@@ -166,7 +162,7 @@ export async function getLessonsByTopic(topicId: string): Promise<Lesson[]> {
       return {
         id: page.id,
         title,
-        slug: explicitSlug || makeSlug(title, page.id),
+        slug: makeRouteSlug(explicitSlug || title, page.id),
         topic_id: topicId,
         order: getNumber(props['Order']),
         content: getText(props['Content']),
@@ -200,7 +196,7 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
     return {
       id: page.id,
       title,
-      slug: explicitSlug || makeSlug(title, page.id),
+      slug: makeRouteSlug(explicitSlug || title, page.id),
       topic_id: topicIds[0] ?? '',
       order: getNumber(props['Order']),
       content,
@@ -236,7 +232,7 @@ export async function getProjectsByCourse(courseId: string): Promise<NotionProje
         return {
           id: page.id,
           title,
-          slug: explicitSlug || makeSlug(title, page.id),
+          slug: makeRouteSlug(explicitSlug || title, page.id),
           course_id: courseId,
           project_max_size_mb: getNumber(props['Project_Max_Size_MB']) || 5,
           allowed_extensions: getText(props['Allowed_Extensions']),
