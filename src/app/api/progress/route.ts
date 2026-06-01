@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { lesson_id, topic_id, lesson_title } = await request.json();
+  const { lesson_id, topic_id, lesson_title, course_slug, lesson_slug } = await request.json();
   if (!lesson_id || !topic_id) {
     return NextResponse.json({ error: 'lesson_id and topic_id required' }, { status: 400 });
   }
@@ -17,6 +17,8 @@ export async function POST(request: Request) {
       lesson_id,
       topic_id,
       lesson_title: lesson_title ?? null,
+      course_slug: course_slug ?? null,
+      lesson_slug: lesson_slug ?? null,
       completed_at: new Date().toISOString(),
       last_reviewed: new Date().toISOString(),
     },
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
 
   const query = supabase
     .from('user_progress')
-    .select('lesson_id, topic_id, lesson_title, completed_at, last_reviewed')
+    .select('lesson_id, topic_id, lesson_title, completed_at, last_reviewed, course_slug, lesson_slug')
     .eq('user_id', user.id)
     .order('last_reviewed', { ascending: false })
     .limit(limit);

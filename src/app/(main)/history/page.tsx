@@ -19,6 +19,8 @@ interface ProgressRow {
   topic_id: string;
   completed_at: string;
   last_reviewed: string | null;
+  course_slug: string | null;
+  lesson_slug: string | null;
 }
 
 interface CourseProgress {
@@ -39,7 +41,7 @@ export default async function HistoryPage() {
   // Get all user progress
   const { data: progress } = await supabase
     .from('user_progress')
-    .select('lesson_id, lesson_title, topic_id, completed_at, last_reviewed')
+    .select('lesson_id, lesson_title, topic_id, completed_at, last_reviewed, course_slug, lesson_slug')
     .eq('user_id', user.id)
     .order('last_reviewed', { ascending: false });
 
@@ -198,7 +200,11 @@ export default async function HistoryPage() {
             {recentLessons.map((lesson) => (
               <Link
                 key={`${lesson.lesson_id}-${lesson.completed_at}`}
-                href={`/learn/${lesson.lesson_id}`}
+                href={
+                  lesson.course_slug && lesson.lesson_slug
+                    ? `/course/${lesson.course_slug}/lesson/${lesson.lesson_slug}`
+                    : `/explore`
+                }
                 className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-muted)] transition-colors"
               >
                 <div

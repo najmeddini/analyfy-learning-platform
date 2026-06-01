@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 interface ChatBubbleProps {
   message: ChatMessage;
   onQuizAnswer: (messageId: string, selectedIndex: number) => void;
-  onNextLesson: () => void;
+  onNextLesson: (url: string | null | undefined) => void;
   onFileUpload: (file: File) => void;
   isStreaming: boolean;
 }
@@ -42,17 +42,18 @@ export default function ChatBubble({
   }
 
   if (message.type === 'next-button') {
+    const isLast = message.nextLessonUrl === null;
     return (
       <div className="flex justify-center py-2">
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          onClick={onNextLesson}
+          onClick={() => onNextLesson(message.nextLessonUrl)}
           className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-bold text-sm transition-colors"
-          style={{ backgroundColor: '#6c63ff' }}
+          style={{ backgroundColor: isLast ? '#22c55e' : '#6c63ff' }}
         >
-          درس بعدی
-          <ChevronLeft size={16} />
+          {isLast ? '🎉 پایان دوره' : 'درس بعدی'}
+          {!isLast && <ChevronLeft size={16} />}
         </motion.button>
       </div>
     );

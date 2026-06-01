@@ -23,21 +23,21 @@ export function formatDate(dateString: string): string {
 }
 
 /**
- * Build a hierarchical route slug: "{title-slug}-{uuid-without-hyphens}"
- * Example: "python-basics-370a8ae8f850803cbb52000b12a3d7af"
+ * Build a route slug: "{title-slug}-{5-char-prefix-of-notionId}"
+ * Example: "python-basics-370a8"
+ * The 5-char prefix is the first 5 hex chars of the UUID (hyphens stripped).
  */
 export function makeRouteSlug(title: string, notionId: string): string {
-  return `${slugify(title)}-${notionId.replace(/-/g, '')}`;
+  const hash5 = notionId.replace(/-/g, '').slice(0, 5);
+  return `${slugify(title)}-${hash5}`;
 }
 
 /**
- * Reconstruct Notion UUID from a route slug.
- * Strips all hyphens, takes last 32 chars (the UUID), re-inserts hyphens.
+ * Extract the 5-char hash from a route slug.
+ * e.g. "python-basics-370a8" → "370a8"
  */
-export function extractNotionId(routeSlug: string): string {
-  const flat = routeSlug.replace(/-/g, '');
-  const hex = flat.slice(-32);
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+export function extractSlugHash(routeSlug: string): string {
+  return routeSlug.slice(-5);
 }
 
 export function formatFileSize(bytes: number): string {

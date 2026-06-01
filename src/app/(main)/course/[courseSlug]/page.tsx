@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { getCourses, getTopicsByCourse } from '@/lib/notion/client';
-import { extractNotionId } from '@/lib/utils';
 import JsonLd from '@/components/ui/JsonLd';
 import CourseDetailClient from './CourseDetailClient';
 import type { Metadata } from 'next';
@@ -11,9 +10,8 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { courseSlug } = await params;
-  const courseId = extractNotionId(courseSlug);
   const courses = await getCourses();
-  const course = courses.find((c) => c.id === courseId);
+  const course = courses.find(c => c.slug === courseSlug);
   return {
     title: course?.title ?? 'دوره',
     description: `سرفصل‌ها و درس‌های دوره ${course?.title ?? ''}`,
@@ -22,13 +20,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CourseDetailPage({ params }: Props) {
   const { courseSlug } = await params;
-  const courseId = extractNotionId(courseSlug);
 
   const courses = await getCourses();
-  const course = courses.find((c) => c.id === courseId);
+  const course = courses.find(c => c.slug === courseSlug);
   if (!course) notFound();
 
-  const topics = await getTopicsByCourse(courseId);
+  const topics = await getTopicsByCourse(course.id);
 
   const courseSchema = {
     '@context': 'https://schema.org',
@@ -59,7 +56,7 @@ export default async function CourseDetailPage({ params }: Props) {
     <>
       <JsonLd data={courseSchema} />
       <CourseDetailClient
-        courseId={courseId}
+        courseId={course.id}
         courseSlug={courseSlug}
         courseTitle={course.title}
       />

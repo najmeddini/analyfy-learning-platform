@@ -47,13 +47,15 @@ export default function Sidebar({ user, profile }: SidebarProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  // Fetch recent lesson threads for authenticated users
+  // Fetch recent lesson threads — only entries with hierarchical slugs
   useEffect(() => {
     if (!user) return;
     supabase
       .from('user_progress')
-      .select('lesson_id, lesson_title, last_reviewed')
+      .select('lesson_id, lesson_title, last_reviewed, course_slug, lesson_slug')
       .eq('user_id', user.id)
+      .not('course_slug', 'is', null)
+      .not('lesson_slug', 'is', null)
       .order('last_reviewed', { ascending: false })
       .limit(15)
       .then(({ data }) => setThreads(data ?? []));
@@ -178,15 +180,14 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           </p>
           <ul className="space-y-0.5">
             {threads.map((thread) => {
-              // The canonical URL ends with the lesson UUID (no hyphens).
-              // /learn/[id] redirects to /course/[slug]/lesson/[slug-uuid].
-              // Active detection: check if pathname contains the UUID without hyphens.
-              const uuidFlat = thread.lesson_id.replace(/-/g, '');
-              const isActive = pathname.includes(uuidFlat);
+              // thread.course_slug and thread.lesson_slug are guaranteed non-null
+              // (filtered by the Supabase query above)
+              const href = `/course/${thread.course_slug}/lesson/${thread.lesson_slug}`;
+              const isActive = pathname === href;
               return (
                 <li key={thread.lesson_id}>
                   <Link
-                    href={`/learn/${thread.lesson_id}`}
+                    href={href}
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors truncate"
                     style={{

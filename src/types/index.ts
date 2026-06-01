@@ -37,6 +37,9 @@ export interface UserProgress {
   lesson_title: string | null;  // cached from Notion (migration 003)
   last_reviewed: string | null; // updated on each visit (migration 003)
   completed_at: string;
+  // Hierarchical URL slugs (migration 004)
+  course_slug: string | null;
+  lesson_slug: string | null;
 }
 
 export interface CourseRating {
@@ -149,6 +152,7 @@ export interface ChatMessage {
   content: string;
   type: 'text' | 'quiz' | 'next-button' | 'file-upload';
   quizData?: QuizQuestion;
+  nextLessonUrl?: string | null; // for next-button type: null = last lesson
   timestamp: Date;
 }
 
@@ -180,4 +184,6 @@ export interface RecentThread {
   lesson_id: string;
   lesson_title: string | null;
   last_reviewed: string | null;
+  course_slug: string | null;   // set for entries created with migration 004+
+  lesson_slug: string | null;
 }

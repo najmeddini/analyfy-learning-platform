@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ChatAreaProps {
   messages: ChatMessage[];
   onQuizAnswer: (messageId: string, selectedIndex: number) => void;
-  onNextLesson: () => void;
+  onNextLesson: (url: string | null | undefined) => void;
   onFileUpload: (file: File) => void;
   isStreaming: boolean;
 }

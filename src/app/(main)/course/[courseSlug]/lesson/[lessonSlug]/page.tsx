@@ -1,16 +1,13 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { getLessonById, getTopicsByCourse, getCourses } from '@/lib/notion/client';
-import { extractNotionId } from '@/lib/utils';
+import { getLessonBySlug, getNextLessonUrl, getTopicsByCourse, getCourses } from '@/lib/notion/client';
 import { createClient } from '@/lib/supabase/server';
 import LessonChatShell from '@/components/chat/LessonChatShell';
 import JsonLd from '@/components/ui/JsonLd';
-import type { Topic } from '@/types';
 
-// Bot detection — Googlebot must see full content without animation
+// Bot detection — Googlebot sees full content without animation
 function isBot(userAgent: string): boolean {
-  const botPatterns = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebot|ia_archiver/i;
-  return botPatterns.test(userAgent);
+  return /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebot|ia_archiver/i.test(userAgent);
 }
 
 interface Props {
@@ -18,9 +15,8 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const { lessonSlug } = await params;
-  const lessonId = extractNotionId(lessonSlug);
-  const lesson = await getLessonById(lessonId);
+  const { courseSlug, lessonSlug } = await params;
+  const lesson = await getLessonBySlug(courseSlug, lessonSlug);
   return {
     title: lesson?.title ?? 'درس',
     description: lesson?.content?.slice(0, 150) ?? '',
@@ -29,34 +25,24 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function LessonPage({ params }: Props) {
   const { courseSlug, lessonSlug } = await params;
-  const lessonId = extractNotionId(lessonSlug);
 
-  // Fetch lesson server-side (SSR — Googlebot sees full content)
-  const lesson = await getLessonById(lessonId);
+  // Slug-based lookup — no UUID reconstruction needed
+  const lesson = await getLessonBySlug(courseSlug, lessonSlug);
   if (!lesson) notFound();
 
-  // Fetch topic for bounty/project info
-  let topic: Topic | null = null;
-  if (lesson.topic_id) {
-    const courseId = extractNotionId(courseSlug);
-    const topics = await getTopicsByCourse(courseId);
-    topic = topics.find((t) => t.id === lesson.topic_id) ?? null;
-    // Fallback: scan all courses if not found in the expected course
-    if (!topic) {
-      const courses = await getCourses();
-      for (const course of courses) {
-        const allTopics = await getTopicsByCourse(course.id);
-        const found = allTopics.find((t) => t.id === lesson.topic_id);
-        if (found) { topic = found; break; }
-      }
-    }
-  }
+  // Resolve topic and next lesson URL in parallel with auth check
+  const courses = await getCourses();
+  const course = courses.find(c => c.slug === courseSlug);
+  const topics = course ? await getTopicsByCourse(course.id) : [];
+  const topic = topics.find(t => t.id === lesson.topic_id) ?? null;
 
-  // Auth — nullable for guests
-  const supabase = await createClient();
+  const [nextLessonUrl, supabase] = await Promise.all([
+    getNextLessonUrl(courseSlug, lesson),
+    createClient(),
+  ]);
+
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Completed lessons for this user
   const completedLessonIds: string[] = [];
   if (user) {
     const { data } = await supabase
@@ -66,12 +52,8 @@ export default async function LessonPage({ params }: Props) {
     completedLessonIds.push(...(data ?? []).map((r) => r.lesson_id));
   }
 
-  // Bot check — skip animation for crawlers
   const headersList = await headers();
   const ua = headersList.get('user-agent') ?? '';
-  const isSearchBot = isBot(ua);
-
-  const canonicalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseSlug}/lesson/${lessonSlug}`;
 
   const qaSchema = {
     '@context': 'https://schema.org',
@@ -84,7 +66,7 @@ export default async function LessonPage({ params }: Props) {
       acceptedAnswer: {
         '@type': 'Answer',
         text: lesson.content.slice(0, 500),
-        url: canonicalUrl,
+        url: `${process.env.NEXT_PUBLIC_SITE_URL}/course/${courseSlug}/lesson/${lessonSlug}`,
       },
     },
   };
@@ -95,9 +77,12 @@ export default async function LessonPage({ params }: Props) {
       <LessonChatShell
         lesson={lesson}
         topic={topic}
+        courseSlug={courseSlug}
+        lessonSlug={lessonSlug}
+        nextLessonUrl={nextLessonUrl}
         user={user ? { id: user.id, email: user.email ?? '' } : null}
-        isBot={isSearchBot}
-        isAlreadyCompleted={completedLessonIds.includes(lessonId)}
+        isBot={isBot(ua)}
+        isAlreadyCompleted={completedLessonIds.includes(lesson.id)}
       />
     </>
   );

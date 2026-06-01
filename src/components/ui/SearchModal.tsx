@@ -10,6 +10,9 @@ interface SearchResult {
   id: string;
   title: string;
   topic_id: string;
+  lesson_slug: string;
+  course_slug: string;
+  url: string;
 }
 
 interface Props {
@@ -87,7 +90,7 @@ export default function SearchModal({ onClose, user }: Props) {
   }, [query, startedTopicIds]);
 
   function navigateTo(result: SearchResult) {
-    router.push(`/learn/${result.id}`);
+    router.push(result.url);
     onClose();
   }
 

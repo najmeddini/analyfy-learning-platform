@@ -5,15 +5,16 @@ import { useRouter } from 'next/navigation';
 import type { Lesson, Topic, ChatMessage, QuizQuestion } from '@/types';
 import { nanoid } from '@/lib/nanoid';
 import ChatArea from './ChatArea';
-import CommentBox from './CommentBox';
 import GuestTeaser from './GuestTeaser';
 import BountyBadge from '../ui/BountyBadge';
-import StarRating from '../ui/StarRating';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Send } from 'lucide-react';
 
 interface Props {
   lesson: Lesson;
   topic: Topic | null;
+  courseSlug: string;
+  lessonSlug: string;
+  nextLessonUrl: string | null;
   user: { id: string; email: string } | null;
   isBot: boolean;
   isAlreadyCompleted: boolean;
@@ -31,7 +32,6 @@ function parseQuizContent(quizContent: string): QuizQuestion | null {
     text: l.replace(/^- \[[ x]\]\s*/, '').trim(),
   }));
 
-  // Question is everything before the first option line
   const firstOptionIdx = lines.findIndex(l => /^- \[[ x]\]/.test(l));
   const questionLine = lines.slice(0, firstOptionIdx).filter(l => l.trim()).pop();
 
@@ -58,13 +58,24 @@ async function animateText(
   onChunk(text);
 }
 
-export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyCompleted }: Props) {
+export default function LessonChatShell({
+  lesson,
+  topic,
+  courseSlug,
+  lessonSlug,
+  nextLessonUrl,
+  user,
+  isBot,
+  isAlreadyCompleted,
+}: Props) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [showComment, setShowComment] = useState(false);
   const [lessonDone, setLessonDone] = useState(isAlreadyCompleted);
-  const [userRating, setUserRating] = useState(0);
+  const [chatInput, setChatInput] = useState('');
+  const [isOptOut, setIsOptOut] = useState(false); // unchecked = public by default
+  const [sending, setSending] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialized = useRef(false);
 
   const addMessage = useCallback((msg: ChatMessage) => {
@@ -80,8 +91,6 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
 
   async function runLesson() {
     const skipAnimation = isBot || isAlreadyCompleted;
-
-    // Prefer rich HTML content from Notion page blocks; fall back to plain content
     const displayContent = lesson.html_content?.trim() || lesson.content;
 
     const msgId = nanoid();
@@ -93,27 +102,32 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
     }, skipAnimation);
     setIsStreaming(false);
 
-    // If lesson has a quiz, parse Quiz_Content (NOT embedded in main content)
     if (lesson.has_quiz && lesson.quiz_content) {
       const quiz = parseQuizContent(lesson.quiz_content);
       if (quiz) {
         addMessage({ id: nanoid(), role: 'system', content: '', type: 'quiz', quizData: quiz, timestamp: new Date() });
-        return; // Wait for quiz answer before marking done
+        return; // wait for quiz answer
       }
     }
 
-    // No quiz — show next button immediately
     showNextButton();
     if (!isAlreadyCompleted) await markDone();
   }
 
   function showNextButton() {
-    addMessage({ id: nanoid(), role: 'system', content: '', type: 'next-button', timestamp: new Date() });
+    addMessage({
+      id: nanoid(),
+      role: 'system',
+      content: '',
+      type: 'next-button',
+      nextLessonUrl: user ? nextLessonUrl : null,
+      timestamp: new Date(),
+    });
   }
 
   async function markDone() {
-    setLessonDone(true); // Always update UI — guests see GuestTeaser, auth users see CommentBox
-    if (!user) return;   // Guests skip the progress API call
+    setLessonDone(true); // always update UI; guests see GuestTeaser
+    if (!user) return;
     await fetch('/api/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -121,6 +135,8 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
         lesson_id: lesson.id,
         topic_id: lesson.topic_id,
         lesson_title: lesson.title,
+        course_slug: courseSlug,
+        lesson_slug: lessonSlug,
       }),
     });
   }
@@ -143,7 +159,7 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
     addMessage({ id: replyId, role: 'system', content: '', type: 'text', timestamp: new Date() });
 
     const replyText = isCorrect
-      ? '✅ عالی! پاسخ درست است. ادامه بده!'
+      ? '✅ عالی! پاسخ درست است.'
       : `❌ پاسخ درست نیست. جواب صحیح: **${correct}**`;
 
     setIsStreaming(true);
@@ -156,12 +172,43 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
     if (!isAlreadyCompleted) await markDone();
   }
 
-  function handleNextLesson() {
+  function handleNextLesson(url: string | null | undefined) {
     if (!user) {
       router.push('/login');
       return;
     }
-    setShowComment(true);
+    router.push(url ?? `/course/${courseSlug}`);
+  }
+
+  async function handleSendComment() {
+    const text = chatInput.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setChatInput('');
+
+    // Optimistic: add user bubble immediately
+    addMessage({ id: nanoid(), role: 'user', content: text, type: 'text', timestamp: new Date() });
+
+    try {
+      await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic_id: lesson.topic_id,
+          content: text,
+          is_public_consent: !isOptOut, // opt-out model: unchecked = public
+        }),
+      });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendComment();
+    }
   }
 
   async function handleFileUpload(file: File) {
@@ -177,7 +224,7 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
         className="px-4 py-3 border-b flex items-center gap-3 flex-shrink-0"
         style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
@@ -190,15 +237,6 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
         </button>
         <h1 className="font-semibold text-sm flex-1 truncate">{lesson.title}</h1>
 
-        {/* Star rating (for authenticated users who completed the lesson) */}
-        {user && lessonDone && topic && (
-          <StarRating
-            courseId={topic.course_id}
-            initialRating={userRating}
-            onRate={setUserRating}
-          />
-        )}
-
         {topic?.is_bounty_project && (
           <BountyBadge
             prize={topic.bounty_prize}
@@ -207,13 +245,16 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
           />
         )}
         {isAlreadyCompleted && (
-          <span className="text-xs px-2 py-1 rounded-full flex-shrink-0" style={{ backgroundColor: '#22c55e18', color: '#16a34a' }}>
+          <span
+            className="text-xs px-2 py-1 rounded-full flex-shrink-0"
+            style={{ backgroundColor: '#22c55e18', color: '#16a34a' }}
+          >
             ✅ تکمیل‌شده
           </span>
         )}
       </div>
 
-      {/* Chat content */}
+      {/* ── Chat area ───────────────────────────────────────────────────── */}
       <ChatArea
         messages={messages}
         onQuizAnswer={handleQuizAnswer}
@@ -222,28 +263,55 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
         isStreaming={isStreaming}
       />
 
-      {/* Bottom: comment or guest teaser */}
-      {lessonDone && !showComment && (
-        user ? (
-          <div
-            className="px-4 py-3 border-t flex-shrink-0"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
-          >
-            <button
-              onClick={() => setShowComment(true)}
-              className="text-sm font-medium"
-              style={{ color: '#6c63ff' }}
+      {/* ── Bottom section ──────────────────────────────────────────────── */}
+      {user ? (
+        /* Permanent chat input for authenticated users */
+        <div
+          className="border-t flex-shrink-0 px-4 py-3 space-y-2"
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
+        >
+          <div className="max-w-2xl mx-auto w-full">
+            <div
+              className="flex items-end gap-2 rounded-2xl border px-3 py-2 focus-within:border-[#6c63ff] transition-colors"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--background)' }}
             >
-              + نظر یا بازتاب یادگیری بنویس
-            </button>
-          </div>
-        ) : (
-          <GuestTeaser topicId={lesson.topic_id} />
-        )
-      )}
+              <textarea
+                ref={inputRef}
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                placeholder="بازتاب یادگیری خود را بنویسید... (Enter برای ارسال)"
+                rows={1}
+                className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
+                style={{ color: 'var(--foreground)', minHeight: '24px', maxHeight: '120px' }}
+              />
+              <button
+                onClick={handleSendComment}
+                disabled={!chatInput.trim() || sending}
+                className="p-1.5 rounded-xl flex-shrink-0 transition-colors disabled:opacity-40"
+                style={{ backgroundColor: chatInput.trim() ? '#6c63ff' : 'transparent' }}
+              >
+                <Send size={15} className="text-white" />
+              </button>
+            </div>
 
-      {showComment && user && (
-        <CommentBox topicId={lesson.topic_id} onDone={() => setShowComment(false)} />
+            <label className="flex items-center gap-2 cursor-pointer mt-1.5 px-1">
+              <input
+                type="checkbox"
+                checked={isOptOut}
+                onChange={e => setIsOptOut(e.target.checked)}
+                className="rounded"
+                style={{ accentColor: '#6c63ff' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                نمی‌خواهم این بازتاب به صورت عمومی نمایش داده شود
+              </span>
+            </label>
+          </div>
+        </div>
+      ) : (
+        /* Guest teaser — shown after lesson finishes */
+        lessonDone && <GuestTeaser topicId={lesson.topic_id} />
       )}
     </div>
   );
