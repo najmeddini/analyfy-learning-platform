@@ -7,7 +7,7 @@
 1. **اطلاعات حساس**: هرگز از کاربر نخواه API key یا credential را در چت paste کند. همه credentials فقط در `.env.local` (gitignored) قرار می‌گیرند. هرگز `.env.local` را commit یا share نکن.
 2. **زبان کد**: تمام کد به انگلیسی. متن‌های UI به فارسی (RTL).
 3. **این Next.js 16.2.6 + React 19 است** — رفتار ممکن است با نسخه‌های قدیمی‌تر فرق داشته باشد. قبل از نوشتن کد، `node_modules/next/dist/docs/` را چک کن.
-4. **Dev server روی port 3001** اجرا می‌شود: `npm run dev -- --port 3001`
+4. **Dev server روی port 3001** اجرا می‌شود: `npm run dev` (port در package.json ثابت شده — هرگز بدون `-p 3001` اجرا نکن)
 
 ---
 
