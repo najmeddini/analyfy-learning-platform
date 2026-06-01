@@ -22,6 +22,17 @@
 - **Framer Motion** — انیمیشن‌های چت
 - **Vazirmatn** — فونت فارسی
 
+### نکته مهم: proxy.ts (نه middleware.ts)
+در Next.js 16، فایل `middleware.ts` کاملاً deprecated شده و باعث **internal server error** می‌شود.
+باید از `src/proxy.ts` با export به نام `proxy` استفاده کرد:
+```typescript
+// ✅ درست — src/proxy.ts
+export async function proxy(request: NextRequest) { ... }
+
+// ❌ اشتباه — src/middleware.ts
+export async function middleware(request: NextRequest) { ... }
+```
+
 ### ساختار مسیرها
 ```
 src/
@@ -284,6 +295,9 @@ const href = `/course/${thread.course_slug}/lesson/${thread.lesson_slug}`;
 
 ### ❌ هرگز این کارها را نکن
 ```typescript
+// ❌ فایل middleware.ts — در Next.js 16 deprecated است و internal server error می‌دهد
+// به جایش proxy.ts با export به نام `proxy` استفاده کن (نه `middleware`)
+
 // ❌ در library files:
 export const revalidate = 60; // در client.ts کار نمی‌کند
 
