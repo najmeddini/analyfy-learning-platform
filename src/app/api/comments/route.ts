@@ -38,10 +38,9 @@ export async function GET(request: Request) {
   const topic_id = searchParams.get('topic_id');
   if (!topic_id) return NextResponse.json({ error: 'topic_id required' }, { status: 400 });
 
+  // Public read: only approved + public_consent comments are exposed.
+  // Guests can see them (needed by GuestTeaser); no auth required.
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   const { data, error } = await supabase
     .from('comments')
     .select('*, profiles(display_name, avatar_url)')

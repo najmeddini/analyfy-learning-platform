@@ -178,7 +178,11 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           </p>
           <ul className="space-y-0.5">
             {threads.map((thread) => {
-              const isActive = pathname === `/learn/${thread.lesson_id}`;
+              // The canonical URL ends with the lesson UUID (no hyphens).
+              // /learn/[id] redirects to /course/[slug]/lesson/[slug-uuid].
+              // Active detection: check if pathname contains the UUID without hyphens.
+              const uuidFlat = thread.lesson_id.replace(/-/g, '');
+              const isActive = pathname.includes(uuidFlat);
               return (
                 <li key={thread.lesson_id}>
                   <Link

@@ -112,7 +112,8 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
   }
 
   async function markDone() {
-    if (!user) return;
+    setLessonDone(true); // Always update UI — guests see GuestTeaser, auth users see CommentBox
+    if (!user) return;   // Guests skip the progress API call
     await fetch('/api/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -122,7 +123,6 @@ export default function LessonChatShell({ lesson, topic, user, isBot, isAlreadyC
         lesson_title: lesson.title,
       }),
     });
-    setLessonDone(true);
   }
 
   async function handleQuizAnswer(messageId: string, selectedIndex: number) {
