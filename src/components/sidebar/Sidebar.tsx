@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js';
 import type { Profile, RecentThread } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import SearchModal from '@/components/ui/SearchModal';
+import Logo from '@/components/ui/Logo';
 import {
   BookOpen,
   Search,
@@ -90,12 +91,7 @@ export default function Sidebar({ user, profile }: SidebarProps) {
         className="flex items-center gap-3 px-4 py-4 border-b flex-shrink-0"
         style={{ borderColor: 'var(--color-border)' }}
       >
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-black flex-shrink-0"
-          style={{ backgroundColor: '#6c63ff' }}
-        >
-          A
-        </div>
+        <Logo size={32} className="flex-shrink-0 rounded-xl" />
         <span className="font-bold text-sm">آکادمی آنالیفای</span>
         <button
           className="mr-auto p-1 rounded-lg md:hidden hover:bg-[var(--color-muted)]"

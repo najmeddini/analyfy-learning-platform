@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import Logo from '@/components/ui/Logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -49,10 +50,8 @@ export default function LoginPage() {
       >
         {/* Header */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4" style={{ backgroundColor: '#6c63ff' }}>
-            ی
-          </div>
-          <h1 className="text-xl font-bold">ورود به پلتفرم</h1>
+          <Logo size={52} className="mx-auto mb-4 rounded-2xl" />
+          <h1 className="text-xl font-bold">ورود به آکادمی آنالیفای</h1>
           <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
             برای شروع یادگیری وارد شوید
           </p>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BookOpen, Search, FolderOpen, Award } from 'lucide-react';
+import Logo from '@/components/ui/Logo';
 
 export default function MainPage() {
   return (
@@ -8,12 +9,7 @@ export default function MainPage() {
       style={{ backgroundColor: 'var(--color-chat-bg)' }}
     >
       <div className="text-center space-y-6 max-w-sm px-4">
-        <div
-          className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto text-white text-2xl font-black"
-          style={{ backgroundColor: '#6c63ff' }}
-        >
-          A
-        </div>
+        <Logo size={80} className="mx-auto rounded-2xl" />
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">به آکادمی آنالیفای خوش آمدید</h2>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--color-muted-foreground)' }}>
