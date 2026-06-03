@@ -20,32 +20,49 @@ export default function ChatArea({
   onFileUpload,
   isStreaming,
 }: ChatAreaProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isAutoScrollPausedRef = useRef(false);
+  const innerRef    = useRef<HTMLDivElement>(null);
 
-  // Detect manual upward scroll → pause auto-scroll
+  // True when user is close enough to the bottom that we should follow.
+  // Stored in a ref so reads/writes never cause re-renders.
+  const shouldFollowRef = useRef(true);
+
+  // ── Scroll helper: instant jump, never animates ──────────────────
+  const scrollToBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  // ── onScroll: user moved the container manually ──────────────────
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Consider "at bottom" if within 80px of the end
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    isAutoScrollPausedRef.current = !atBottom;
+    // 100 px grace zone — if within it, re-engage auto-follow
+    shouldFollowRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
   }, []);
 
-  // When a new message arrives or streaming updates, scroll only if not paused
+  // ── ResizeObserver: fires only when content height actually grows ─
+  // This replaces useEffect([messages]) which fired on every render,
+  // causing dozens of competing smooth-scroll animations per second.
   useEffect(() => {
-    if (!isAutoScrollPausedRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+    const inner = innerRef.current;
+    if (!inner) return;
 
-  // When streaming ends, reset pause so next lesson auto-scrolls from top
+    const observer = new ResizeObserver(() => {
+      if (shouldFollowRef.current) scrollToBottom();
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [scrollToBottom]);
+
+  // ── When a NEW lesson loads (streaming starts fresh), jump to top ─
   useEffect(() => {
-    if (!isStreaming) {
-      isAutoScrollPausedRef.current = false;
+    if (isStreaming && messages.length <= 1) {
+      const el = containerRef.current;
+      if (el) el.scrollTop = 0;
+      shouldFollowRef.current = true;
     }
-  }, [isStreaming]);
+  }, [isStreaming, messages.length]);
 
   return (
     <div
@@ -54,7 +71,7 @@ export default function ChatArea({
       className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
       style={{ backgroundColor: 'var(--color-chat-bg)' }}
     >
-      <div className="max-w-2xl mx-auto w-full space-y-4">
+      <div ref={innerRef} className="max-w-2xl mx-auto w-full space-y-4">
         <AnimatePresence initial={false}>
           {messages.map((message) => (
             <motion.div
@@ -80,8 +97,6 @@ export default function ChatArea({
             <TypingIndicator />
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
     </div>
   );
