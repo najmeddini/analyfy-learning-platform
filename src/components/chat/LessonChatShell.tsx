@@ -280,7 +280,7 @@ export default function LessonChatShell({
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={handleInputKeyDown}
-                placeholder="بازتاب یادگیری خود را بنویسید... (Enter برای ارسال)"
+                placeholder="سوالتو بپرس یا کامنت بذار..."
                 rows={1}
                 className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
                 style={{ color: 'var(--foreground)', minHeight: '24px', maxHeight: '120px' }}

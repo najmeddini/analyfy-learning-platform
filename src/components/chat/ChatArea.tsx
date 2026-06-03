@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type { ChatMessage } from '@/types';
 import ChatBubble from './ChatBubble';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,13 +21,36 @@ export default function ChatArea({
   isStreaming,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollPausedRef = useRef(false);
 
+  // Detect manual upward scroll → pause auto-scroll
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // Consider "at bottom" if within 80px of the end
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    isAutoScrollPausedRef.current = !atBottom;
+  }, []);
+
+  // When a new message arrives or streaming updates, scroll only if not paused
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isAutoScrollPausedRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  // When streaming ends, reset pause so next lesson auto-scrolls from top
+  useEffect(() => {
+    if (!isStreaming) {
+      isAutoScrollPausedRef.current = false;
+    }
+  }, [isStreaming]);
 
   return (
     <div
+      ref={containerRef}
+      onScroll={handleScroll}
       className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
       style={{ backgroundColor: 'var(--color-chat-bg)' }}
     >

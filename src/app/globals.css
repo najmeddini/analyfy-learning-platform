@@ -21,18 +21,8 @@
   --foreground: #09090b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --color-muted: #18181b;
-    --color-muted-foreground: #a1a1aa;
-    --color-border: #27272a;
-    --color-sidebar: #111113;
-    --color-chat-bg: #09090b;
-    --color-bubble-system: #18181b;
-  }
-}
+/* Dark mode intentionally disabled — light is the default.
+   Re-enable by adding [data-theme="dark"] :root { ... } when a theme toggle is added. */
 
 * {
   box-sizing: border-box;
