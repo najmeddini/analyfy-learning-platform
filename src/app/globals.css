@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap');
 @import "tailwindcss";
 
+/* Force Tailwind dark: variant to require an explicit .dark class on an ancestor.
+   Since we never add .dark, ALL dark: utility classes become permanently inactive. */
+@variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: 'Vazirmatn', system-ui, sans-serif;
   --color-background: var(--background);

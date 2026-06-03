@@ -14,24 +14,29 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="overflow-x-hidden">
-      {/* ───────────── HERO ───────────── */}
+    /* Soft gradient base — never plain white */
+    <div className="overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+
+      {/* ─── HERO ─────────────────────────────────────────────────── */}
       <section className="relative min-h-[88vh] flex flex-col items-center justify-center px-6 py-24 overflow-hidden">
-        {/* Background gradient blobs */}
+
+        {/* Decorative blobs — sit below content */}
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute top-[-10%] right-[-5%] w-[520px] h-[520px] rounded-full bg-indigo-400/20 blur-[130px]" />
-          <div className="absolute bottom-[-5%] left-[5%] w-[380px] h-[380px] rounded-full bg-violet-400/15 blur-[110px]" />
+          <div className="absolute top-[-8%] right-[-4%] w-[500px] h-[500px] rounded-full bg-indigo-300/25 blur-[140px]" />
+          <div className="absolute bottom-[-4%] left-[4%]  w-[380px] h-[380px] rounded-full bg-violet-300/20 blur-[120px]" />
         </div>
 
         <div className="max-w-3xl w-full text-center space-y-8">
+
           {/* Exclusivity badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold
+                          bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm">
             <Sparkles size={13} />
             دسترسی محدود · فقط با کد دعوت
           </div>
 
           {/* Hook — Specific invisible problem */}
-          <h1 className="text-4xl sm:text-5xl font-black leading-snug tracking-tight text-slate-800 dark:text-slate-50">
+          <h1 className="text-4xl sm:text-5xl font-black leading-snug tracking-tight text-slate-900">
             هر روز محتوا نگاه می‌کنی.
             <br />
             <span className="bg-gradient-to-l from-indigo-600 to-violet-500 bg-clip-text text-transparent">
@@ -39,12 +44,10 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          {/* Sub-headline — The Promise */}
-          <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 max-w-xl mx-auto leading-relaxed">
+          {/* Sub-headline */}
+          <p className="text-lg sm:text-xl text-slate-600 max-w-xl mx-auto leading-relaxed">
             آکادمی آنالیفای اولین پلتفرمی‌ه که{' '}
-            <span className="font-bold text-slate-800 dark:text-slate-100">
-              یادگیری رو به مکالمه تبدیل می‌کنه
-            </span>
+            <span className="font-bold text-slate-800">یادگیری رو به مکالمه تبدیل می‌کنه</span>
             . با هوش مصنوعی تمرین می‌کنی، خطاهاتو می‌فهمی، و مهارت واقعی می‌سازی.
           </p>
 
@@ -52,15 +55,15 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold text-white shadow-lg shadow-indigo-300/40 dark:shadow-indigo-900/40 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-400/40"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold text-white
+                         shadow-lg shadow-indigo-300/50 transition-all hover:-translate-y-0.5
+                         hover:shadow-xl hover:shadow-indigo-400/50"
               style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
             >
               ورود با کد دعوت
               <ArrowLeft size={17} />
             </Link>
-            <span className="text-sm text-slate-400 dark:text-slate-500">
-              کد دعوت داری؟ همین‌جا شروع کن.
-            </span>
+            <span className="text-sm text-slate-400">کد دعوت داری؟ همین‌جا شروع کن.</span>
           </div>
 
           {/* Glassmorphism feature cards */}
@@ -84,37 +87,29 @@ export default function LandingPage() {
             ].map((card) => (
               <div
                 key={card.title}
-                className="rounded-2xl p-4 text-right border border-white/50 dark:border-slate-700/60 shadow-lg"
-                style={{
-                  backdropFilter: 'blur(12px)',
-                  background:
-                    'linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.35) 100%)',
-                }}
+                className="rounded-2xl p-4 text-right
+                           bg-white/70 backdrop-blur-md
+                           border border-white/50
+                           shadow-lg shadow-indigo-200/50"
               >
                 <div className="flex items-center gap-2 mb-2">
                   {card.icon}
-                  <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                    {card.title}
-                  </span>
+                  <span className="font-bold text-slate-800 text-sm">{card.title}</span>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
-                  {card.desc}
-                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">{card.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ───────────── AGITATION — The Invisible Problem ───────────── */}
+      {/* ─── AGITATION ────────────────────────────────────────────── */}
       <section className="px-6 py-20 max-w-5xl mx-auto">
         <div className="text-center space-y-3 mb-14">
-          <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">
+          <h2 className="text-3xl font-black text-slate-900">
             پلتفرم‌های قدیمی چرا جواب نمی‌دن؟
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-base">
-            مشکل از تو نیست. مشکل از روش یادگیریه.
-          </p>
+          <p className="text-slate-500 text-base">مشکل از تو نیست. مشکل از روش یادگیریه.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -137,31 +132,31 @@ export default function LandingPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-md dark:shadow-slate-900/30 space-y-3 text-right bg-white dark:bg-slate-800/50"
+              className="rounded-2xl p-6 text-right space-y-3
+                         bg-white/70 backdrop-blur-md
+                         border border-white/50
+                         shadow-lg shadow-indigo-200/50"
             >
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 shadow-sm">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 shadow-sm">
                 {item.icon}
               </div>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{item.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{item.desc}</p>
+              <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ───────────── SOLUTION ───────────── */}
-      <section className="px-6 py-20 bg-slate-50 dark:bg-slate-800/30">
+      {/* ─── SOLUTION ─────────────────────────────────────────────── */}
+      <section className="px-6 py-20 bg-gradient-to-b from-indigo-50/60 to-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center space-y-3 mb-14">
-            <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">
-              روش آنالیفای فرق داره
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-base max-w-lg mx-auto">
+            <h2 className="text-3xl font-black text-slate-900">روش آنالیفای فرق داره</h2>
+            <p className="text-slate-500 text-base max-w-lg mx-auto">
               به‌جای تماشا،{' '}
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">مکالمه</span>{' '}
-              می‌کنی. به‌جای حفظ کردن،{' '}
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">تمرین</span>{' '}
-              می‌کنی.
+              <span className="font-semibold text-indigo-600">مکالمه</span> می‌کنی.
+              به‌جای حفظ کردن،{' '}
+              <span className="font-semibold text-indigo-600">تمرین</span> می‌کنی.
             </p>
           </div>
 
@@ -190,14 +185,17 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="flex gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800/60"
+                className="flex gap-4 p-5 rounded-2xl text-right
+                           bg-white/70 backdrop-blur-md
+                           border border-white/50
+                           shadow-lg shadow-indigo-200/50"
               >
-                <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/60">
+                <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50">
                   {item.icon}
                 </div>
-                <div className="space-y-1 text-right">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{item.title}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{item.desc}</p>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-800 text-sm">{item.title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -205,15 +203,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ───────────── EARLY ADOPTER CTA ───────────── */}
-      <section className="px-6 py-28">
+      {/* ─── EARLY ADOPTER CTA ────────────────────────────────────── */}
+      <section className="px-6 py-28 bg-gradient-to-br from-white via-indigo-50/40 to-violet-50/30">
         <div className="max-w-2xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold
+                          bg-rose-50 text-rose-600 border border-rose-200">
             <Sparkles size={12} />
             ظرفیت محدود · فقط با کد دعوت
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-slate-100">
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-900">
             اولین نفری باش که
             <br />
             <span className="bg-gradient-to-l from-indigo-600 to-violet-500 bg-clip-text text-transparent">
@@ -221,14 +220,16 @@ export default function LandingPage() {
             </span>
           </h2>
 
-          <p className="text-slate-500 dark:text-slate-400 text-base leading-relaxed">
+          <p className="text-slate-500 text-base leading-relaxed">
             آکادمی آنالیفای الان در مرحله MVP هست و فقط به اعضای دعوت‌شده دسترسی داره.
             اگه کد دعوت داری، همین الان وارد شو.
           </p>
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-base font-bold text-white shadow-xl shadow-indigo-300/30 dark:shadow-indigo-900/40 transition-all hover:-translate-y-1 hover:shadow-2xl"
+            className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-base font-bold text-white
+                       shadow-xl shadow-indigo-300/40 transition-all hover:-translate-y-1
+                       hover:shadow-2xl hover:shadow-indigo-400/50"
             style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
           >
             ورود با کد دعوت
@@ -236,6 +237,7 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
     </div>
   );
 }
