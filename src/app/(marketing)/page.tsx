@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -13,34 +11,26 @@ import {
   BookMarked,
   BrainCircuit,
 } from 'lucide-react';
-import Logo from '@/components/ui/Logo';
 
-export default function MainPage() {
+export default function LandingPage() {
   return (
-    <div
-      dir="rtl"
-      className="flex-1 overflow-y-auto"
-      style={{
-        fontFamily: "'Vazirmatn', sans-serif",
-        backgroundColor: 'var(--color-chat-bg)',
-      }}
-    >
+    <div className="overflow-x-hidden">
       {/* ───────────── HERO ───────────── */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-6 py-20 overflow-hidden">
+      <section className="relative min-h-[88vh] flex flex-col items-center justify-center px-6 py-24 overflow-hidden">
         {/* Background gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute top-[-10%] right-[-5%] w-[480px] h-[480px] rounded-full bg-indigo-400/20 blur-[120px]" />
-          <div className="absolute bottom-[-5%] left-[5%] w-[360px] h-[360px] rounded-full bg-violet-400/15 blur-[100px]" />
+          <div className="absolute top-[-10%] right-[-5%] w-[520px] h-[520px] rounded-full bg-indigo-400/20 blur-[130px]" />
+          <div className="absolute bottom-[-5%] left-[5%] w-[380px] h-[380px] rounded-full bg-violet-400/15 blur-[110px]" />
         </div>
 
         <div className="max-w-3xl w-full text-center space-y-8">
-          {/* Badge */}
+          {/* Exclusivity badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm">
             <Sparkles size={13} />
             دسترسی محدود · فقط با کد دعوت
           </div>
 
-          {/* Headline — The Hook */}
+          {/* Hook — Specific invisible problem */}
           <h1 className="text-4xl sm:text-5xl font-black leading-snug tracking-tight text-slate-800 dark:text-slate-50">
             هر روز محتوا نگاه می‌کنی.
             <br />
@@ -63,9 +53,7 @@ export default function MainPage() {
             <Link
               href="/login"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-base font-bold text-white shadow-lg shadow-indigo-300/40 dark:shadow-indigo-900/40 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-400/40"
-              style={{
-                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-              }}
+              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
             >
               ورود با کد دعوت
               <ArrowLeft size={17} />
@@ -75,8 +63,8 @@ export default function MainPage() {
             </span>
           </div>
 
-          {/* Glassmorphism floating cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
+          {/* Glassmorphism feature cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
             {[
               {
                 icon: <BrainCircuit size={20} className="text-indigo-500" />,
@@ -96,17 +84,22 @@ export default function MainPage() {
             ].map((card) => (
               <div
                 key={card.title}
-                className="rounded-2xl p-4 text-right border border-white/40 dark:border-slate-700/60 shadow-lg backdrop-blur-md text-sm space-y-1.5"
+                className="rounded-2xl p-4 text-right border border-white/50 dark:border-slate-700/60 shadow-lg"
                 style={{
+                  backdropFilter: 'blur(12px)',
                   background:
-                    'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 100%)',
+                    'linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.35) 100%)',
                 }}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   {card.icon}
-                  <span className="font-bold text-slate-800 dark:text-slate-100">{card.title}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                    {card.title}
+                  </span>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 leading-relaxed">{card.desc}</p>
+                <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                  {card.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -144,10 +137,9 @@ export default function MainPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-md dark:shadow-slate-900/30 space-y-3 text-right"
-              style={{ backgroundColor: 'var(--color-muted)' }}
+              className="rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-md dark:shadow-slate-900/30 space-y-3 text-right bg-white dark:bg-slate-800/50"
             >
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-800 shadow-sm">
                 {item.icon}
               </div>
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{item.title}</h3>
@@ -157,23 +149,23 @@ export default function MainPage() {
         </div>
       </section>
 
-      {/* ───────────── SOLUTION — Variable Reward ───────────── */}
-      <section
-        className="px-6 py-20"
-        style={{ backgroundColor: 'var(--background)' }}
-      >
+      {/* ───────────── SOLUTION ───────────── */}
+      <section className="px-6 py-20 bg-slate-50 dark:bg-slate-800/30">
         <div className="max-w-4xl mx-auto">
           <div className="text-center space-y-3 mb-14">
             <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">
               روش آنالیفای فرق داره
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-base max-w-lg mx-auto">
-              به‌جای تماشا، <span className="font-semibold text-indigo-600 dark:text-indigo-400">مکالمه</span> می‌کنی.
-              به‌جای حفظ کردن، <span className="font-semibold text-indigo-600 dark:text-indigo-400">تمرین</span> می‌کنی.
+              به‌جای تماشا،{' '}
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">مکالمه</span>{' '}
+              می‌کنی. به‌جای حفظ کردن،{' '}
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">تمرین</span>{' '}
+              می‌کنی.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {[
               {
                 icon: <BrainCircuit size={22} className="text-indigo-500" />,
@@ -193,13 +185,12 @@ export default function MainPage() {
               {
                 icon: <TrendingUp size={22} className="text-violet-500" />,
                 title: 'مسیر یادگیری شخصی‌سازی‌شده',
-                desc: 'سیستم یاد می‌گیره کجا ضعیفی و محتوا رو برای تو تنظیم می‌کنه — نه برای یه کاربر فرضی.',
+                desc: 'سیستم یاد می‌گیره کجا ضعیفی و محتوا رو برات تنظیم می‌کنه — نه برای یه کاربر فرضی.',
               },
             ].map((item) => (
               <div
                 key={item.title}
-                className="flex gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm"
-                style={{ backgroundColor: 'var(--color-chat-bg)' }}
+                className="flex gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800/60"
               >
                 <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/60">
                   {item.icon}
@@ -214,8 +205,8 @@ export default function MainPage() {
         </div>
       </section>
 
-      {/* ───────────── EARLY ADOPTER / FOOTER CTA ───────────── */}
-      <section className="px-6 py-24">
+      {/* ───────────── EARLY ADOPTER CTA ───────────── */}
+      <section className="px-6 py-28">
         <div className="max-w-2xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
             <Sparkles size={12} />
@@ -238,20 +229,11 @@ export default function MainPage() {
           <Link
             href="/login"
             className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-base font-bold text-white shadow-xl shadow-indigo-300/30 dark:shadow-indigo-900/40 transition-all hover:-translate-y-1 hover:shadow-2xl"
-            style={{
-              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-            }}
+            style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}
           >
             ورود با کد دعوت
             <ArrowLeft size={17} />
           </Link>
-
-          <div className="flex items-center justify-center gap-6 pt-4">
-            <Logo size={32} className="opacity-60" />
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              آکادمی آنالیفای · یادگیری به سبک مکالمه
-            </span>
-          </div>
         </div>
       </section>
     </div>
