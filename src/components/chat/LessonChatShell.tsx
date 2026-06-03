@@ -75,6 +75,7 @@ export default function LessonChatShell({
   const [chatInput, setChatInput] = useState('');
   const [isOptOut, setIsOptOut] = useState(false); // unchecked = public by default
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialized = useRef(false);
 
@@ -106,12 +107,44 @@ export default function LessonChatShell({
       const quiz = parseQuizContent(lesson.quiz_content);
       if (quiz) {
         addMessage({ id: nanoid(), role: 'system', content: '', type: 'quiz', quizData: quiz, timestamp: new Date() });
-        return; // wait for quiz answer
+        // load comments even when waiting for quiz — they appear below
+        await loadComments();
+        return;
       }
     }
 
     showNextButton();
     if (!isAlreadyCompleted) await markDone();
+    await loadComments();
+  }
+
+  /** Fetch this topic's comments and append them as user bubbles. */
+  async function loadComments() {
+    if (!user) return; // guests see GuestTeaser, not individual comments
+    try {
+      const res = await fetch(`/api/comments?topic_id=${encodeURIComponent(lesson.topic_id)}`);
+      if (!res.ok) return;
+      const { comments } = await res.json();
+      if (!comments?.length) return;
+      setMessages(prev => {
+        // Deduplicate: skip any comment whose id is already in the list
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMsgs: ChatMessage[] = comments
+          .filter((c: { id: string }) => !existingIds.has(c.id))
+          .map((c: { id: string; content: string; status: string; created_at: string }) => ({
+            id: c.id,          // real DB id — survives refreshes
+            role: 'user' as const,
+            content: c.status === 'pending'
+              ? `${c.content}\n\n_در انتظار تأیید..._`
+              : c.content,
+            type: 'text' as const,
+            timestamp: new Date(c.created_at),
+          }));
+        return [...prev, ...newMsgs];
+      });
+    } catch {
+      // silently ignore — not critical
+    }
   }
 
   function showNextButton() {
@@ -183,22 +216,46 @@ export default function LessonChatShell({
   async function handleSendComment() {
     const text = chatInput.trim();
     if (!text || sending) return;
+    setSendError(null);
     setSending(true);
     setChatInput('');
 
-    // Optimistic: add user bubble immediately
-    addMessage({ id: nanoid(), role: 'user', content: text, type: 'text', timestamp: new Date() });
+    // Optimistic: add user bubble immediately with a temp id
+    const tempId = `temp-${nanoid()}`;
+    addMessage({ id: tempId, role: 'user', content: text, type: 'text', timestamp: new Date() });
 
     try {
-      await fetch('/api/comments', {
+      const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic_id: lesson.topic_id,
           content: text,
-          is_public_consent: !isOptOut, // opt-out model: unchecked = public
+          is_public_consent: !isOptOut,
         }),
       });
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'خطای ناشناخته' }));
+        // Rollback optimistic message
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        setChatInput(text); // restore input so user can try again
+        setSendError(error ?? 'ارسال ناموفق بود. دوباره امتحان کن.');
+        return;
+      }
+
+      // Replace temp id with the real DB id so deduplication works on reload
+      const { comment } = await res.json();
+      if (comment?.id) {
+        setMessages(prev =>
+          prev.map(m => m.id === tempId ? { ...m, id: comment.id } : m)
+        );
+      }
+    } catch {
+      // Network error — rollback
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setChatInput(text);
+      setSendError('اتصال قطع است. پیام ذخیره نشد.');
     } finally {
       setSending(false);
     }
@@ -307,6 +364,14 @@ export default function LessonChatShell({
                 نمی‌خواهم این بازتاب به صورت عمومی نمایش داده شود
               </span>
             </label>
+
+            {sendError && (
+              <div className="flex items-center justify-between gap-2 mt-1.5 px-3 py-2 rounded-xl text-xs"
+                style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>
+                <span>{sendError}</span>
+                <button onClick={() => setSendError(null)} className="font-bold hover:opacity-70">✕</button>
+              </div>
+            )}
           </div>
         </div>
       ) : (

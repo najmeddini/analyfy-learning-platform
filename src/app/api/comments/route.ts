@@ -38,17 +38,26 @@ export async function GET(request: Request) {
   const topic_id = searchParams.get('topic_id');
   if (!topic_id) return NextResponse.json({ error: 'topic_id required' }, { status: 400 });
 
-  // Public read: only approved + public_consent comments are exposed.
-  // Guests can see them (needed by GuestTeaser); no auth required.
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('comments')
-    .select('*, profiles(display_name, avatar_url)')
-    .eq('topic_id', topic_id)
-    .eq('status', 'approved')
-    .eq('is_public_consent', true)
-    .order('created_at', { ascending: false });
+  const { data: { user } } = await supabase.auth.getUser();
 
+  // Authenticated users see: approved+public comments OR their own (any status).
+  // Guests see: approved+public only.
+  let query = supabase
+    .from('comments')
+    .select('id, content, status, created_at, user_id, is_public_consent, profiles(display_name, avatar_url)')
+    .eq('topic_id', topic_id)
+    .order('created_at', { ascending: true });
+
+  if (user) {
+    query = query.or(
+      `and(status.eq.approved,is_public_consent.eq.true),user_id.eq.${user.id}`
+    );
+  } else {
+    query = query.eq('status', 'approved').eq('is_public_consent', true);
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ comments: data });
+  return NextResponse.json({ comments: data ?? [] });
 }
