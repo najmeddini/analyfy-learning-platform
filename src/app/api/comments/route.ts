@@ -9,7 +9,10 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { topic_id, content, is_public_consent } = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+
+  const { topic_id, content, is_public_consent } = body;
   if (!topic_id || !content) {
     return NextResponse.json({ error: 'topic_id and content required' }, { status: 400 });
   }
@@ -29,7 +32,10 @@ export async function POST(request: Request) {
     status: 'pending',
   }).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('Comment POST error:', error.code, error.message, error.details);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ comment: data });
 }
 
@@ -41,8 +47,8 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Authenticated users see: approved+public comments OR their own (any status).
-  // Guests see: approved+public only.
+  // Authenticated: approved+public comments OR user's own (any status)
+  // Guest: approved+public only
   let query = supabase
     .from('comments')
     .select('id, content, status, created_at, user_id, is_public_consent, profiles(display_name, avatar_url)')
@@ -58,6 +64,9 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('Comment GET error:', error.code, error.message, error.details);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ comments: data ?? [] });
 }

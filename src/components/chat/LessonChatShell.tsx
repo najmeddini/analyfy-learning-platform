@@ -142,8 +142,8 @@ export default function LessonChatShell({
           }));
         return [...prev, ...newMsgs];
       });
-    } catch {
-      // silently ignore — not critical
+    } catch (err) {
+      console.error('loadComments error:', err);
     }
   }
 
@@ -251,7 +251,8 @@ export default function LessonChatShell({
           prev.map(m => m.id === tempId ? { ...m, id: comment.id } : m)
         );
       }
-    } catch {
+    } catch (err) {
+      console.error('handleSendComment network error:', err);
       // Network error — rollback
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setChatInput(text);
