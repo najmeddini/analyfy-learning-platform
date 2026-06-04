@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
 
-  const { topic_id, content, is_public_consent } = body;
+  const { topic_id, content, is_public_consent, course_id, lesson_id } = body;
   if (!topic_id || !content) {
     return NextResponse.json({ error: 'topic_id and content required' }, { status: 400 });
   }
@@ -30,6 +30,8 @@ export async function POST(request: Request) {
     content,
     is_public_consent: is_public_consent ?? false,
     status: 'pending',
+    course_id: course_id ?? null,
+    lesson_id: lesson_id ?? null,
   }).select().single();
 
   if (error) {

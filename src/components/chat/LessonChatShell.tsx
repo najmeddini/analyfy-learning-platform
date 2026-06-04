@@ -230,6 +230,8 @@ export default function LessonChatShell({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic_id: lesson.topic_id,
+          course_id: courseSlug,
+          lesson_id: lessonSlug,
           content: text,
           is_public_consent: !isOptOut,
         }),
