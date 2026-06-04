@@ -12,7 +12,7 @@ type CommentRow = {
   created_at: string;
   topic_id: string;
   is_public_consent: boolean;
-  profiles: { display_name: string | null } | null;
+  profiles: { display_name: string | null; email: string | null } | null;
 };
 
 const STATUS_LABEL: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -44,7 +44,7 @@ export default async function AdminCommentsPage() {
   const service = await createServiceClient();
   const { data: comments, error } = await service
     .from('comments')
-    .select('id, content, status, created_at, topic_id, is_public_consent, profiles(display_name)')
+    .select('id, content, status, created_at, topic_id, is_public_consent, profiles(display_name, email)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -104,7 +104,7 @@ export default async function AdminCommentsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: 'var(--color-muted)' }}>
-                  {['کاربر', 'محتوا', 'Topic ID', 'تاریخ', 'وضعیت', 'عملیات'].map(h => (
+                  {['نام / ایمیل', 'محتوا', 'Topic ID', 'تاریخ', 'وضعیت', 'عملیات'].map(h => (
                     <th
                       key={h}
                       className="px-4 py-3 text-right font-semibold text-slate-600 whitespace-nowrap"
@@ -125,8 +125,13 @@ export default async function AdminCommentsPage() {
                       style={{ backgroundColor: i % 2 === 0 ? 'white' : '#fafafa' }}
                     >
                       {/* User */}
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-700 font-medium">
-                        {row.profiles?.display_name ?? '—'}
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-700 whitespace-nowrap">
+                          {row.profiles?.display_name ?? '—'}
+                        </p>
+                        {row.profiles?.email && (
+                          <p className="text-xs text-slate-400 mt-0.5">{row.profiles.email}</p>
+                        )}
                       </td>
 
                       {/* Content */}
