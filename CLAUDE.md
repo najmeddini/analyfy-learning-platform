@@ -55,11 +55,16 @@
 - [x] placeholder چت: `"سوالتو بپرس یا کامنت بذار..."`
 - [x] Comment persistence — POST/GET `/api/comments` + optimistic UI + rollback
 - [x] Migration 005 — RLS policies برای `comments` (فایل در repo، اجرا در Supabase Dashboard)
+- [x] Migration 006 — `email` column در `profiles` + backfill + trigger آپدیت (فایل در repo)
+- [x] Migration 007 — `course_id`, `lesson_id`, `parent_id` در `comments` (فایل در repo)
+- [x] Admin comments dashboard `/admin/comments` با service role
+- [x] Admin CommentsTable — فیلتر status/course، ستون Location، Quick Reply inline
+- [x] Server Action `replyAndApprove` — insert reply + auto-approve اصلی
 
-### ⚠️ باید کاربر انجام دهد
-- [ ] **Migration 005** را در Supabase Dashboard → SQL Editor اجرا کن:
-  - فایل: `supabase/migrations/005_comments_rls.sql`
-  - RLS policies برای INSERT و SELECT و UPDATE جدول `comments`
+### ⚠️ باید کاربر انجام دهد (به ترتیب)
+- [ ] **Migration 005** — `supabase/migrations/005_comments_rls.sql`
+- [ ] **Migration 006** — `supabase/migrations/006_add_email_to_profiles.sql`
+- [ ] **Migration 007** — `supabase/migrations/007_upgrade_comments.sql`
 
 ---
 
@@ -78,14 +83,14 @@
 ### ساختار فایل‌های مهم
 ```
 src/
-├── proxy.ts                               # Auth middleware (نه middleware.ts!)
+├── proxy.ts
 ├── app/
 │   ├── (marketing)/
-│   │   ├── layout.tsx                     # Navbar glassmorphism + footer (بدون sidebar)
-│   │   └── page.tsx                       # ← Landing page (route /)
+│   │   ├── layout.tsx                     # Navbar glassmorphism + footer
+│   │   └── page.tsx                       # Landing page (route /)
 │   ├── (main)/
 │   │   ├── layout.tsx                     # Sidebar + main wrapper
-│   │   ├── explore/page.tsx               # لیست دوره‌ها
+│   │   ├── explore/page.tsx
 │   │   ├── course/[courseSlug]/
 │   │   │   ├── page.tsx
 │   │   │   └── lesson/[lessonSlug]/page.tsx
@@ -96,10 +101,14 @@ src/
 │   │   ├── settings/page.tsx
 │   │   ├── user/[username]/page.tsx
 │   │   ├── admin/page.tsx
+│   │   ├── admin/comments/
+│   │   │   ├── page.tsx                   # Server Component — data fetching
+│   │   │   ├── CommentsTable.tsx          # Client Component — filters + reply UI
+│   │   │   └── actions.ts                 # Server Actions: approve/reject/replyAndApprove
 │   │   └── org-admin/page.tsx
 │   ├── api/
 │   │   ├── progress/route.ts
-│   │   ├── comments/route.ts              # GET: approved+public OR own; POST: insert
+│   │   ├── comments/route.ts              # GET: RLS-delegated; POST: insert + course_id/lesson_id
 │   │   ├── projects/route.ts
 │   │   ├── ratings/route.ts
 │   │   ├── search/route.ts
@@ -108,7 +117,7 @@ src/
 │   └── login/page.tsx
 ├── components/
 │   ├── chat/
-│   │   ├── LessonChatShell.tsx            # کانتینر درس + comment persistence
+│   │   ├── LessonChatShell.tsx            # درس + comment persistence + courseSlug/lessonSlug در POST
 │   │   ├── ChatArea.tsx                   # ResizeObserver smart scroll
 │   │   ├── ChatBubble.tsx
 │   │   ├── LessonContent.tsx
@@ -117,13 +126,13 @@ src/
 │   │   └── GuestTeaser.tsx
 │   ├── sidebar/Sidebar.tsx
 │   └── ui/
-│       ├── Logo.tsx                       # ← <img src="/logo.webp"> ساده
+│       ├── Logo.tsx
 │       ├── SearchModal.tsx
-│       ├── StarRating.tsx                 # فقط در explore
+│       ├── StarRating.tsx
 │       ├── BountyBadge.tsx
 │       └── JsonLd.tsx
 ├── lib/
-│   ├── notion/client.ts                   # همه Notion API + unstable_cache
+│   ├── notion/client.ts
 │   ├── notion/blocks.ts
 │   ├── supabase/client.ts
 │   ├── supabase/server.ts                 # createClient + createServiceClient
@@ -137,23 +146,60 @@ src/
 
 | فایل | وضعیت | محتوا |
 |---|---|---|
-| `001_initial.sql` | ✅ اجرا شده | schema اولیه |
+| `001_initial.sql` | ✅ اجرا شده | schema اولیه + comments + profiles + trigger |
 | `002_b2b_and_bounties.sql` | ✅ اجرا شده | B2B + bounty |
 | `003_academy_schema.sql` | ✅ اجرا شده | schema آکادمی |
 | `004_progress_slugs.sql` | ✅ اجرا شده | course_slug + lesson_slug |
-| `005_comments_rls.sql` | ⚠️ باید اجرا شود | RLS policies برای `comments` |
+| `005_comments_rls.sql` | ⚠️ اجرا شود | RLS policies برای comments |
+| `006_add_email_to_profiles.sql` | ⚠️ اجرا شود | email در profiles + backfill + trigger |
+| `007_upgrade_comments.sql` | ⚠️ اجرا شود | course_id, lesson_id, parent_id در comments |
+
+---
+
+## Comment System — معماری کامل
+
+### Schema (جدول `comments`)
+```
+id               uuid PK
+user_id          uuid → auth.users
+topic_id         text NOT NULL          (Notion topic ID)
+course_id        text NULL              (migration 007 — courseSlug)
+lesson_id        text NULL              (migration 007 — lessonSlug)
+parent_id        uuid NULL → comments   (migration 007 — threading)
+content          text NOT NULL
+is_public_consent boolean default false
+status           text: pending/approved/rejected
+created_at       timestamptz
+```
+
+### API
+- **POST** `/api/comments`: insert با `user_id`, `topic_id`, `course_id`, `lesson_id`, `status: 'pending'`
+- **GET** `/api/comments?topic_id=X`: RLS تصمیم می‌گیره (own OR approved+public)
+
+### LessonChatShell
+- `handleSendComment`: courseSlug + lessonSlug رو با کامنت ارسال می‌کنه
+- `loadComments()`: بعد از `runLesson()` کامنت‌های DB لود و inject می‌شن
+- **Optimistic UI**: temp id → real DB id، rollback + error banner در صورت failure
+
+### Admin `/admin/comments`
+- **page.tsx**: Server Component، service role، دو query جداگانه (comments + profiles) + merge
+- **CommentsTable.tsx**: Client Component — فیلتر status/course، ستون Location، Quick Reply
+- **actions.ts**: `approveComment`, `rejectComment`, `replyAndApprove`
+  - `replyAndApprove`: insert reply با `parent_id` + auto-approve کامنت اصلی
+
+### نکته مهم: FK مستقیم بین comments و profiles وجود ندارد
+`comments.user_id → auth.users` و `profiles.user_id → auth.users`
+PostgREST نمی‌تواند `profiles(...)` را روی comments join کند.
+**راه‌حل**: همیشه دو query جداگانه + merge در JS.
 
 ---
 
 ## Logo Component
 
 ```tsx
-// src/components/ui/Logo.tsx
-// یک فایل واحد برای همه تم‌ها — logo.webp در public/
 <img src="/logo.webp" alt="آکادمی آنالیفای" width={size} height={size} />
 ```
-
-فایل لوگو در `public/logo.webp` — commit شده در git.
+فایل: `public/logo.webp` — commit شده در git.
 
 ---
 
@@ -161,53 +207,14 @@ src/
 
 ```
 /course/{title-slug}-{5char}/lesson/{title-slug}-{5char}
-مثال: /course/python-basics-370a8/lesson/variables-a1b2c
 ```
-
 ```typescript
-// src/lib/utils.ts
 export function makeRouteSlug(title: string, notionId: string): string {
   const hash5 = notionId.replace(/-/g, '').slice(0, 5);
   return `${slugify(title)}-${hash5}`;
 }
-```
-
-**Slug Resolution:** چون فقط ۵ کاراکتر داریم، UUID قابل بازسازی نیست.
-```typescript
+// Slug Resolution:
 const course = courses.find(c => c.slug === courseSlug); // نه UUID reconstruction
-```
-
----
-
-## Notion Client — الگوهای مهم
-
-### چرا `unstable_cache`؟
-Notion SDK از HTTP خودش استفاده می‌کند، نه fetch پچ‌شده Next.js. پس `export const revalidate` در library files کار نمی‌کند.
-
-```typescript
-const REVALIDATE_TIME = parseInt(process.env.REVALIDATE_TIME || '60', 10);
-
-const _getCourses = unstable_cache(
-  async (includeAll: boolean): Promise<Course[]> => { /* Notion API */ },
-  ['notion-courses'],
-  { revalidate: REVALIDATE_TIME }
-);
-```
-
-### مشکل رایج: دوره نمایش داده نمی‌شود
-→ فیلد **Status** در Notion باید روی **Published** باشد.
-
----
-
-## Supabase Schema
-
-```
-profiles          — user info, role, org_id, username
-user_progress     — lesson progress + course_slug + lesson_slug (migration 004)
-comments          — بازتاب یادگیری (pending/approved/rejected) + RLS (migration 005)
-projects          — پروژه‌های آپلودشده
-course_ratings    — امتیاز دوره‌ها
-organizations     — B2B
 ```
 
 ---
@@ -215,58 +222,38 @@ organizations     — B2B
 ## Theme — Light Mode اجباری
 
 ```css
-/* globals.css */
-/* dark: utility classes فقط با .dark class روی ancestor فعال می‌شن */
-/* چون هیچ‌جا .dark اضافه نمی‌کنیم، همه dark: classها غیرفعالن */
 @variant dark (&:where(.dark, .dark *));
 ```
-
-هرگز `dark:` Tailwind class در کامپوننت‌های جدید اضافه نکن.
+هرگز `dark:` Tailwind class اضافه نکن. همه رنگ‌ها explicit light-only.
 
 ---
 
-## Comment System
+## Notion Client
 
-- **POST** `/api/comments`: insert با `user_id`, `topic_id`, `content`, `status: 'pending'`
-- **GET** `/api/comments?topic_id=X`: authenticated → approved+public OR own; guest → approved+public
-- **LessonChatShell**: بعد از `runLesson()` کامنت‌های DB لود می‌شن و به messages اضافه می‌شن
-- **Optimistic UI**: bubble با temp id → replace با real DB id بعد از موفقیت → rollback + error banner اگه fail شد
+```typescript
+const REVALIDATE_TIME = parseInt(process.env.REVALIDATE_TIME || '60', 10);
+const _getCourses = unstable_cache(async () => { /* ... */ }, ['notion-courses'], { revalidate: REVALIDATE_TIME });
+```
+مشکل رایج: فیلد **Status** در Notion باید **Published** باشد.
 
 ---
 
 ## الگوهای ❌/✅
 
 ```typescript
-// ❌ middleware.ts — deprecated در Next.js 16، internal server error می‌دهد
-// ✅ proxy.ts با export به نام `proxy`
-
-// ❌ export const revalidate در library files — کار نمی‌کند
-// ✅ unstable_cache با { revalidate: REVALIDATE_TIME }
-
-// ❌ UUID reconstruction از ۵ کاراکتر
-// ✅ courses.find(c => c.slug === courseSlug)
-
-// ❌ /learn/[lessonId] — این route حذف شده
-// ✅ /course/[courseSlug]/lesson/[lessonSlug]
-
-// ❌ StarRating در lesson page
-// ✅ StarRating فقط در explore
-
-// ❌ dark: Tailwind classes — light mode اجباریه
-// ✅ explicit light colors (text-slate-900, bg-white, etc.)
-
-// ❌ scrollIntoView({ behavior: 'smooth' }) در typewriter loop
-// ✅ ResizeObserver + el.scrollTop = el.scrollHeight (instant)
-
-// ✅ Promise.all برای parallel fetching
-const [nextUrl, supabase] = await Promise.all([getNextLessonUrl(...), createClient()]);
+// ❌ middleware.ts  →  ✅ proxy.ts
+// ❌ export const revalidate در lib  →  ✅ unstable_cache
+// ❌ UUID reconstruction  →  ✅ courses.find(c => c.slug === slug)
+// ❌ /learn/[lessonId]  →  ✅ /course/[courseSlug]/lesson/[lessonSlug]
+// ❌ dark: Tailwind  →  ✅ explicit light colors
+// ❌ scrollIntoView smooth  →  ✅ ResizeObserver + el.scrollTop = el.scrollHeight
+// ❌ profiles(...) join on comments  →  ✅ دو query جداگانه + merge
 ```
 
 ---
 
 ## متغیرهای محیطی
 
-**`.env.local`** (local dev):
 ```
 NOTION_TOKEN=
 NOTION_COURSES_DB_ID=
@@ -276,9 +263,6 @@ NOTION_PROJECTS_DB_ID=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_SITE_URL=http://localhost:3001
+NEXT_PUBLIC_SITE_URL=http://localhost:3001   # در Vercel: https://academy.analyfy.me
 REVALIDATE_TIME=60
 ```
-
-**Vercel** (production):
-- همه موارد بالا + `NEXT_PUBLIC_SITE_URL=https://academy.analyfy.me`
