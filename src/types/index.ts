@@ -154,6 +154,11 @@ export interface ChatMessage {
   quizData?: QuizQuestion;
   nextLessonUrl?: string | null; // for next-button type: null = last lesson
   timestamp: Date;
+  // Avatar / display info (populated when message comes from a DB comment)
+  avatarUrl?: string | null;
+  displayName?: string | null;
+  // Threading: true when this message has parent_id in DB (e.g. admin reply)
+  isReply?: boolean;
 }
 
 export interface QuizOption {

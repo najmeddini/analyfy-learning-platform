@@ -72,18 +72,21 @@ export async function GET(request: Request) {
 
   // Fetch display names (two-query pattern — no direct FK to profiles)
   const userIds = [...new Set(comments.map(c => c.user_id))];
-  let profileMap: Record<string, { display_name: string | null }> = {};
+  let profileMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('user_id, display_name')
+      .select('user_id, display_name, avatar_url')
       .in('user_id', userIds);
-    profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, { display_name: p.display_name }]));
+    profileMap = Object.fromEntries(
+      (profiles ?? []).map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }])
+    );
   }
 
   const enriched = comments.map(c => ({
     ...c,
     display_name: profileMap[c.user_id]?.display_name ?? null,
+    avatar_url:   profileMap[c.user_id]?.avatar_url   ?? null,
     is_own: user ? c.user_id === user.id : false,
   }));
 

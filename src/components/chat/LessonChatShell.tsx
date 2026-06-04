@@ -13,6 +13,7 @@ interface CommunityComment {
   id: string;
   content: string;
   display_name: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -128,8 +129,8 @@ export default function LessonChatShell({
   }
 
   /** Fetch this topic's comments.
-   *  - Own comments → injected into the personal chat stream.
-   *  - Others' approved + public top-level comments → community drawer state.
+   *  - Own comments + approved admin replies to own → personal chat stream.
+   *  - Others' approved + public top-level → community drawer state.
    *  Guests return early — GuestTeaser handles their view.
    */
   async function loadComments() {
@@ -149,36 +150,64 @@ export default function LessonChatShell({
         is_own: boolean;
         is_public_consent: boolean;
         display_name: string | null;
+        avatar_url: string | null;
         parent_id: string | null;
       };
 
       const own: ApiComment[] = all.filter((c: ApiComment) => c.is_own);
-      const community: ApiComment[] = all.filter(
-        (c: ApiComment) => !c.is_own && c.status === 'approved' && c.is_public_consent && !c.parent_id
+      const ownIds = new Set(own.map((c: ApiComment) => c.id));
+
+      // Approved admin/instructor replies to the user's own comments
+      const adminReplies: ApiComment[] = all.filter(
+        (c: ApiComment) =>
+          !c.is_own &&
+          c.parent_id !== null &&
+          ownIds.has(c.parent_id) &&
+          c.status === 'approved',
       );
 
-      // Inject own comments into chat stream
+      // Merge own + admin replies and sort chronologically
+      const toInjectIntoChat = [...own, ...adminReplies].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
+
+      // Inject into chat stream
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
-        const newMsgs: ChatMessage[] = own
+        const newMsgs: ChatMessage[] = toInjectIntoChat
           .filter(c => !existingIds.has(c.id))
-          .map(c => ({
-            id: c.id,
-            role: 'user' as const,
-            content: c.status === 'pending'
-              ? `${c.content}\n\n_در انتظار تأیید..._`
-              : c.content,
-            type: 'text' as const,
-            timestamp: new Date(c.created_at),
-          }));
+          .map(c => {
+            const isAdminReply = !c.is_own;
+            return {
+              id: c.id,
+              role: isAdminReply ? ('system' as const) : ('user' as const),
+              content: !isAdminReply && c.status === 'pending'
+                ? `${c.content}\n\n_در انتظار تأیید..._`
+                : c.content,
+              type: 'text' as const,
+              timestamp: new Date(c.created_at),
+              // Avatar: system replies use logo; own messages use profile avatar
+              avatarUrl:   isAdminReply ? '/logo.webp' : (c.avatar_url ?? null),
+              displayName: isAdminReply ? null : (c.display_name ?? null),
+              isReply:     isAdminReply,   // drives visual indentation in ChatBubble
+            };
+          });
         return [...prev, ...newMsgs];
       });
 
-      // Make community Q&As available in the drawer
+      // Others' approved + public top-level questions → community drawer
+      const community: ApiComment[] = all.filter(
+        (c: ApiComment) =>
+          !c.is_own &&
+          c.status === 'approved' &&
+          c.is_public_consent &&
+          c.parent_id === null,
+      );
       setCommunityComments(community.map(c => ({
         id: c.id,
         content: c.content,
         display_name: c.display_name,
+        avatar_url: c.avatar_url,
         created_at: c.created_at,
       })));
     } catch (err) {
@@ -369,18 +398,22 @@ export default function LessonChatShell({
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
         >
           <div className="max-w-2xl mx-auto w-full space-y-2">
-            {/* Community Q&A button */}
-            {communityComments.length > 0 && lessonDone && (
+            {/* Community Q&A button — show as soon as community data is loaded */}
+            {communityComments.length > 0 && (
               <button
                 onClick={() => setShowCommunity(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-medium transition-colors hover:opacity-80"
-                style={{ backgroundColor: 'var(--color-muted)', color: 'var(--color-muted-foreground)' }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{
+                  backgroundColor: '#6c63ff12',
+                  color: '#6c63ff',
+                  border: '1px solid #6c63ff30',
+                }}
               >
                 <Users size={15} />
                 مشاهده پرسش و پاسخ‌های سایر دانشجویان
                 <span
-                  className="text-xs px-1.5 py-0.5 rounded-full font-bold"
-                  style={{ backgroundColor: '#6c63ff20', color: '#6c63ff' }}
+                  className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
+                  style={{ backgroundColor: '#6c63ff' }}
                 >
                   {communityComments.length}
                 </span>
@@ -478,18 +511,35 @@ export default function LessonChatShell({
                 communityComments.map(c => (
                   <div
                     key={c.id}
-                    className="rounded-2xl px-4 py-3 space-y-1.5"
+                    className="rounded-2xl px-4 py-3 space-y-2"
                     style={{ backgroundColor: 'var(--color-muted)' }}
                   >
-                    <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
-                      {c.display_name ?? 'دانش‌آموز'}
-                    </p>
+                    {/* Avatar row */}
+                    <div className="flex items-center gap-2">
+                      {c.avatar_url ? (
+                        <img
+                          src={c.avatar_url}
+                          alt={c.display_name ?? ''}
+                          className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: '#6c63ff' }}
+                        >
+                          {(c.display_name?.[0] ?? '؟').toUpperCase()}
+                        </div>
+                      )}
+                      <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
+                        {c.display_name ?? 'دانش‌آموز'}
+                      </p>
+                      <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
+                        {new Date(c.created_at).toLocaleDateString('fa-IR', {
+                          month: 'short', day: 'numeric',
+                        })}
+                      </p>
+                    </div>
                     <p className="text-sm leading-relaxed">{c.content}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-                      {new Date(c.created_at).toLocaleDateString('fa-IR', {
-                        month: 'short', day: 'numeric',
-                      })}
-                    </p>
                   </div>
                 ))
               )}

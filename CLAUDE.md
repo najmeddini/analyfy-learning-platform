@@ -61,7 +61,7 @@
 - [x] Admin CommentsTable — فیلتر text/status/course/lesson/privacy/thread، Bulk Approve، Quick Reply inline
 - [x] Server Action `replyAndApprove` — insert reply + auto-approve اصلی
 - [x] Server Action `bulkApproveComments(ids[])` — batch approve در یک query
-- [x] Comment fetching bug fix — حذف profiles join شکسته، two-query pattern، `is_own` flag
+- [x] Comment fetching bug fix — حذف profiles join شکسته، two-query pattern، `is_own` + `avatar_url` flag
 - [x] GET /api/comments — enriched با display_name + is_own (بدون profiles FK)
 - [x] LessonChatShell — own comments در chat، community Q&As در side drawer جداگانه
 - [x] GuestTeaser — ۳ جدیدترین approved+public Q&A + CTA بهبودیافته
