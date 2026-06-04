@@ -25,6 +25,13 @@ export default function AdminPanel() {
           >
             ادمین
           </span>
+          <a
+            href="/admin/comments"
+            className="mr-auto text-xs px-3 py-1.5 rounded-xl text-white font-bold hover:opacity-90"
+            style={{ backgroundColor: '#6c63ff' }}
+          >
+            مدیریت کامنت‌ها ←
+          </a>
         </div>
 
         {/* Tabs */}

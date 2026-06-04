@@ -45,25 +45,17 @@ export async function GET(request: Request) {
   if (!topic_id) return NextResponse.json({ error: 'topic_id required' }, { status: 400 });
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  // Authenticated: approved+public comments OR user's own (any status)
-  // Guest: approved+public only
-  let query = supabase
+  // No manual status filter here — Postgres RLS handles visibility:
+  //   • "comments: own read"           → user sees their own (any status)
+  //   • "comments: public approved read" → everyone sees approved+public_consent
+  // Combining both policies gives each user exactly what they should see.
+  const { data, error } = await supabase
     .from('comments')
     .select('id, content, status, created_at, user_id, is_public_consent, profiles(display_name, avatar_url)')
     .eq('topic_id', topic_id)
     .order('created_at', { ascending: true });
 
-  if (user) {
-    query = query.or(
-      `and(status.eq.approved,is_public_consent.eq.true),user_id.eq.${user.id}`
-    );
-  } else {
-    query = query.eq('status', 'approved').eq('is_public_consent', true);
-  }
-
-  const { data, error } = await query;
   if (error) {
     console.error('Comment GET error:', error.code, error.message, error.details);
     return NextResponse.json({ error: error.message }, { status: 500 });
