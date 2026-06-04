@@ -24,41 +24,16 @@ function getInitials(name: string | null | undefined): string {
   return name[0].toUpperCase();
 }
 
-/** Small avatar circle: tries image, falls back to initials */
-function AvatarCircle({
-  avatarUrl,
-  displayName,
-  size = 7,
-  fallbackBg = '#6c63ff',
-}: {
-  avatarUrl?: string | null;
-  displayName?: string | null;
-  size?: number;
-  fallbackBg?: string;
-}) {
-  const dim = `w-${size} h-${size}`;
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={displayName ?? ''}
-        className={cn(dim, 'rounded-full object-cover flex-shrink-0 mt-0.5')}
-        onError={e => {
-          // If image fails to load, hide and show initials circle via sibling
-          (e.currentTarget as HTMLElement).style.display = 'none';
-          const sib = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null;
-          if (sib) sib.style.display = 'flex';
-        }}
-      />
-    );
-  }
+/**
+ * Render user-submitted text safely as plain text — NO links, NO HTML.
+ * Any URL a user types stays as an un-clickable string (anti-spam).
+ * Preserves newlines via white-space: pre-wrap.
+ */
+function PlainUserText({ text }: { text: string }) {
   return (
-    <div
-      className={cn(dim, 'rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 select-none')}
-      style={{ backgroundColor: fallbackBg }}
-    >
-      {getInitials(displayName)}
-    </div>
+    <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      {text}
+    </span>
   );
 }
 
@@ -69,14 +44,6 @@ export default function ChatBubble({
   onFileUpload,
   isStreaming,
 }: ChatBubbleProps) {
-  // DEBUG — remove after confirming avatars render correctly
-  console.log('[ChatBubble]', message.role, message.type, {
-    avatarUrl: message.avatarUrl,
-    displayName: message.displayName,
-    isReply: message.isReply,
-    id: message.id,
-  });
-
   const isSystem = message.role === 'system';
 
   // ── Quiz ──────────────────────────────────────────────────────────
@@ -126,60 +93,100 @@ export default function ChatBubble({
     );
   }
 
-  // ── System text (lesson content or admin reply) ───────────────────
+  // ── System / admin-reply text ─────────────────────────────────────
+  // ALL system messages (lesson content AND admin replies) go through
+  // SystemBubble which forces /logo.webp. Admin replies also get the
+  // "پشتیبانی آنالیفای" label and indentation.
   if (isSystem) {
     return (
       <SystemBubble isStreaming={isStreaming} isReply={message.isReply}>
+        {/*
+          System messages use LessonContent (dangerouslySetInnerHTML) so that
+          instructor-written URLs become clickable <a> tags (target="_blank").
+          User messages never go through LessonContent — see UserBubble below.
+        */}
         <LessonContent content={message.content} />
       </SystemBubble>
     );
   }
 
-  // ── User text (own comment, optionally a reply) ───────────────────
+  // ── User text bubble (own comment) ───────────────────────────────
   return (
-    <div className={cn('flex items-start gap-2', message.isReply && 'mr-10')}>
-      {/* Avatar: use avatar_url → fallback initials */}
-      {message.avatarUrl ? (
-        <>
-          <img
-            src={message.avatarUrl}
-            alt={message.displayName ?? ''}
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5"
-            onError={e => {
-              (e.currentTarget as HTMLElement).style.display = 'none';
-              const sib = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null;
-              if (sib) sib.style.display = 'flex';
-            }}
-          />
-          {/* Hidden fallback shown by onError above */}
-          <div
-            className="w-7 h-7 rounded-full items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 select-none hidden"
-            style={{ backgroundColor: '#6c63ff' }}
-          >
-            {getInitials(message.displayName)}
-          </div>
-        </>
-      ) : (
-        <AvatarCircle displayName={message.displayName} fallbackBg="#6c63ff" />
-      )}
+    <div className={cn('flex flex-col items-start gap-1', message.isReply && 'mr-10')}>
+      <div className="flex items-start gap-2">
+        {/* Avatar: image → onError falls back to initials circle */}
+        <UserAvatar avatarUrl={message.avatarUrl} displayName={message.displayName} />
 
-      {/* Bubble */}
-      <div
-        className={cn(
-          'max-w-xs lg:max-w-md px-4 py-3 rounded-2xl text-white text-sm leading-relaxed',
-          message.isReply
-            ? 'rounded-tr-sm border-r-2 border-white/30 text-sm opacity-90'
-            : 'rounded-tr-sm',
-        )}
-        style={{ backgroundColor: message.isReply ? '#8b7cf8' : '#6c63ff' }}
-      >
-        {message.content}
+        {/* Bubble — plain text only, no HTML, no links (anti-spam) */}
+        <div
+          className={cn(
+            'max-w-xs lg:max-w-md px-4 py-3 rounded-2xl text-white text-sm leading-relaxed',
+            message.isReply ? 'rounded-tr-sm opacity-90' : 'rounded-tr-sm',
+          )}
+          style={{ backgroundColor: message.isReply ? '#8b7cf8' : '#6c63ff' }}
+        >
+          <PlainUserText text={message.content} />
+        </div>
       </div>
+
+      {/* Pending indicator — shown BELOW the bubble row, never inside the text */}
+      {message.status === 'pending' && (
+        <span className="text-xs text-slate-400 mr-9 mt-0.5 select-none">
+          در انتظار تأیید...
+        </span>
+      )}
     </div>
   );
 }
 
-/** System message bubble — used for lesson content and admin replies */
+/** Avatar for user messages: image with initials fallback */
+function UserAvatar({
+  avatarUrl,
+  displayName,
+}: {
+  avatarUrl?: string | null;
+  displayName?: string | null;
+}) {
+  if (avatarUrl) {
+    return (
+      <div className="relative flex-shrink-0 mt-0.5">
+        <img
+          src={avatarUrl}
+          alt={displayName ?? ''}
+          className="w-7 h-7 rounded-full object-cover border border-slate-200"
+          onError={e => {
+            const el = e.currentTarget as HTMLImageElement;
+            el.style.display = 'none';
+            const fallback = el.nextElementSibling as HTMLElement | null;
+            if (fallback) fallback.style.display = 'flex';
+          }}
+        />
+        {/* Fallback shown by onError */}
+        <div
+          className="w-7 h-7 rounded-full items-center justify-center text-white text-xs font-bold select-none hidden"
+          style={{ backgroundColor: '#6c63ff' }}
+        >
+          {getInitials(displayName)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 select-none"
+      style={{ backgroundColor: '#6c63ff' }}
+    >
+      {getInitials(displayName)}
+    </div>
+  );
+}
+
+/**
+ * System message bubble.
+ * - Always uses /logo.webp (never the admin's personal avatar).
+ * - isReply=true: indented, branded "پشتیبانی آنالیفای" label, lighter bg.
+ * - URLs in content are clickable (instructor-authored content is trusted).
+ */
 function SystemBubble({
   children,
   isStreaming,
@@ -191,29 +198,31 @@ function SystemBubble({
 }) {
   return (
     <div className={cn('flex items-start gap-3', isReply && 'mr-10')}>
-      {/* Logo avatar — always /logo.webp for any system/AI message */}
+      {/* /logo.webp — FORCED for all system/AI messages, never avatar_url */}
       <img
         src="/logo.webp"
         alt="آکادمی آنالیفای"
-        className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5"
+        className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0 mt-0.5"
       />
 
       <div
         className={cn(
           'flex-1 px-4 py-3 rounded-2xl rounded-tr-sm text-sm leading-relaxed max-w-2xl',
-          isReply && 'border-r-2 border-indigo-200',
+          isReply && 'border-r-2 border-indigo-300',
           isStreaming && 'typing-cursor',
         )}
-        style={{ backgroundColor: isReply ? '#f0f4ff' : 'var(--color-bubble-system)' }}
+        style={{ backgroundColor: isReply ? '#eef2ff' : 'var(--color-bubble-system)' }}
       >
-        {/* Small "پاسخ" label for indented admin replies */}
+        {/* Admin-reply branding — displayed above the reply text */}
         {isReply && (
-          <span
-            className="block text-xs font-semibold mb-1.5"
-            style={{ color: '#6c63ff' }}
-          >
-            پاسخ مدرس
-          </span>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+              style={{ backgroundColor: '#6c63ff' }}
+            >
+              پشتیبانی آنالیفای
+            </span>
+          </div>
         )}
         {children}
       </div>

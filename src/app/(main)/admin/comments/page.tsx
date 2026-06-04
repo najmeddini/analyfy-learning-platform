@@ -4,7 +4,7 @@ import CommentsTable, { type CommentRow } from './CommentsTable';
 
 export const metadata = { title: 'مدیریت کامنت‌ها' };
 
-type Profile = { user_id: string; display_name: string | null; email: string | null };
+type Profile = { user_id: string; display_name: string | null; email: string | null; avatar_url: string | null };
 
 export default async function AdminCommentsPage() {
   // ── Auth guard ───────────────────────────────────────────────
@@ -19,9 +19,12 @@ export default async function AdminCommentsPage() {
   // ── Fetch data (service role bypasses RLS) ───────────────────
   const service = await createServiceClient();
 
+  // select('*') is intentional: explicit column lists fail with a 400 if any
+  // column doesn't yet exist (e.g. migration 007 unrun), silently emptying the table.
+  // Service role bypasses RLS so every row is returned regardless of status/user.
   const { data: rawComments, error } = await service
     .from('comments')
-    .select('id, content, status, created_at, topic_id, course_id, lesson_id, user_id, is_public_consent, parent_id')
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -36,7 +39,7 @@ export default async function AdminCommentsPage() {
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await service
-      .from('profiles').select('user_id, display_name, email').in('user_id', userIds);
+      .from('profiles').select('user_id, display_name, email, avatar_url').in('user_id', userIds);
     if (profilesError) {
       console.error('Admin profiles fetch error:', profilesError.code, profilesError.message);
     }

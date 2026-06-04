@@ -159,6 +159,8 @@ export interface ChatMessage {
   displayName?: string | null;
   // Threading: true when this message has parent_id in DB (e.g. admin reply)
   isReply?: boolean;
+  // DB comment status — used to show "در انتظار تأیید" indicator without polluting content
+  status?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface QuizOption {

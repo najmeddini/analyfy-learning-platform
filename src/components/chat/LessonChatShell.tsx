@@ -181,15 +181,15 @@ export default function LessonChatShell({
             return {
               id: c.id,
               role: isAdminReply ? ('system' as const) : ('user' as const),
-              content: !isAdminReply && c.status === 'pending'
-                ? `${c.content}\n\n_در انتظار تأیید..._`
-                : c.content,
+              content: c.content,   // never pollute content with status text
               type: 'text' as const,
               timestamp: new Date(c.created_at),
-              // Avatar: system replies use logo; own messages use profile avatar
               avatarUrl:   isAdminReply ? '/logo.webp' : (c.avatar_url ?? null),
               displayName: isAdminReply ? null : (c.display_name ?? null),
-              isReply:     isAdminReply,   // drives visual indentation in ChatBubble
+              isReply:     isAdminReply,
+              status:      c.is_own
+                ? (c.status as 'pending' | 'approved' | 'rejected')
+                : undefined,
             };
           });
         return [...prev, ...newMsgs];
@@ -290,7 +290,12 @@ export default function LessonChatShell({
 
     // Optimistic: add user bubble immediately with a temp id
     const tempId = `temp-${nanoid()}`;
-    addMessage({ id: tempId, role: 'user', content: text, type: 'text', timestamp: new Date() });
+    addMessage({
+      id: tempId, role: 'user', content: text, type: 'text', timestamp: new Date(),
+      status: 'pending',
+      avatarUrl: null,   // will be populated on next loadComments
+      displayName: null,
+    });
 
     try {
       const res = await fetch('/api/comments', {

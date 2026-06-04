@@ -19,7 +19,7 @@ export type CommentRow = {
   user_id: string;
   is_public_consent: boolean;
   parent_id: string | null;
-  profile: { display_name: string | null; email: string | null } | null;
+  profile: { display_name: string | null; email: string | null; avatar_url: string | null } | null;
 };
 
 const STATUS_META = {
