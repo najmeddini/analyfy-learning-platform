@@ -9,6 +9,7 @@
 3. **این Next.js 16.2.6 + React 19 است** — رفتار ممکن است با نسخه‌های قدیمی‌تر فرق داشته باشد. قبل از نوشتن کد، `node_modules/next/dist/docs/` را چک کن.
 4. **Dev server روی port 3001**: `npm run dev` — port در `package.json` با `-p 3001` ثابت شده. هرگز بدون flag اجرا نکن چون port 3000 اشغال برنامه دیگری است.
 5. **بعد از هر تغییر فاینال**: CLAUDE.md آپدیت + git commit + push.
+6. **هر تغییر schema دیتابیس**: یک فایل migration در `supabase/migrations/` بساز و commit کن. Repository تنها منبع حقیقت schema است.
 
 ---
 
@@ -27,7 +28,7 @@
 ### ✅ تکمیل‌شده
 - [x] احراز هویت (magic link + Google OAuth)
 - [x] دوره‌ها از Notion با ISR (`unstable_cache`)
-- [x] سیستم درس ChatGPT-style با انیمیشن
+- [x] سیستم درس ChatGPT-style با انیمیشن typewriter
 - [x] کوییز چندگزینه‌ای (فیلد `Quiz_Content` جدا)
 - [x] "درس بعدی" با URL سلسله‌مراتبی واقعی (`getNextLessonUrl`)
 - [x] Slug ۵ کاراکتری: `/course/{slug}-{5char}/lesson/{slug}-{5char}`
@@ -35,12 +36,10 @@
 - [x] `searchLessons` با URL کامل در نتایج
 - [x] SearchModal با `result.url` (نه `/learn/[id]`)
 - [x] History page با `course_slug`/`lesson_slug`
-- [x] Migration 004 فایل ساخته شده (باید در Supabase Dashboard اجرا شود)
+- [x] Migration 004 — `user_progress` با `course_slug` + `lesson_slug` (اجرا شده)
 - [x] حذف `/learn/[lessonId]` route
 - [x] Sidebar با URL سلسله‌مراتبی از DB
-- [x] لوگوی واقعی Analyfy (light/dark theme switching)
-- [x] `Logo` component در `src/components/ui/Logo.tsx`
-- [x] Login page، Landing page، Sidebar همه لوگو دارند
+- [x] لوگوی واحد (`/logo.webp`) در همه تم‌ها — `Logo.tsx` ساده‌سازی شد
 - [x] `proxy.ts` (جایگزین `middleware.ts`)
 - [x] Node.js heap 4GB در dev (`NODE_OPTIONS=--max-old-space-size=4096`)
 - [x] پروفایل عمومی `/user/[username]`
@@ -49,24 +48,18 @@
 - [x] JSON-LD structured data
 - [x] GuestTeaser با ۳ کامنت عمومی
 - [x] صفحات: history، projects، certificate، sponsors
+- [x] Route group `(marketing)` — لندینگ پیج بدون sidebar
+- [x] لندینگ پیج MVP با glassmorphism، gradient، Viral Content Framework
+- [x] Light mode اجباری — `@variant dark` در globals.css غیرفعال
+- [x] Smart auto-scroll با ResizeObserver (جایگزین scrollIntoView fighting)
+- [x] placeholder چت: `"سوالتو بپرس یا کامنت بذار..."`
+- [x] Comment persistence — POST/GET `/api/comments` + optimistic UI + rollback
+- [x] Migration 005 — RLS policies برای `comments` (فایل در repo، اجرا در Supabase Dashboard)
 
 ### ⚠️ باید کاربر انجام دهد
-- [ ] **Migration 004** را در Supabase Dashboard اجرا کن:
-  ```sql
-  ALTER TABLE user_progress
-    ADD COLUMN IF NOT EXISTS course_slug TEXT,
-    ADD COLUMN IF NOT EXISTS lesson_slug TEXT;
-  ```
-
-### 📋 قدم بعدی (مهم‌ترین)
-- [ ] **Landing page جدید** (`src/app/(main)/page.tsx`) — صفحه اصلی باید کاملاً بازطراحی شود:
-  - MVP launch با invite-code system
-  - Glassmorphism design
-  - RTL فارسی با Vazirmatn
-  - هدف: جذب early adopters، نمایش "دعوت‌نامه محدود"
-  - CTA اصلی: "ورود با کد دعوت" ← redirect به `/login`
-  - بر اساس Viral Content Framework (فایل: `/Users/fahime/Documents/Amin/Claude Cowork/Analyfy Styles/viral-content-framework2.md`)
-  - کاربر request کامل را در session قبلی داده — بخوان و پیاده کن
+- [ ] **Migration 005** را در Supabase Dashboard → SQL Editor اجرا کن:
+  - فایل: `supabase/migrations/005_comments_rls.sql`
+  - RLS policies برای INSERT و SELECT و UPDATE جدول `comments`
 
 ---
 
@@ -87,8 +80,10 @@
 src/
 ├── proxy.ts                               # Auth middleware (نه middleware.ts!)
 ├── app/
+│   ├── (marketing)/
+│   │   ├── layout.tsx                     # Navbar glassmorphism + footer (بدون sidebar)
+│   │   └── page.tsx                       # ← Landing page (route /)
 │   ├── (main)/
-│   │   ├── page.tsx                       # ← Landing page (باید بازنویسی شود)
 │   │   ├── layout.tsx                     # Sidebar + main wrapper
 │   │   ├── explore/page.tsx               # لیست دوره‌ها
 │   │   ├── course/[courseSlug]/
@@ -104,7 +99,7 @@ src/
 │   │   └── org-admin/page.tsx
 │   ├── api/
 │   │   ├── progress/route.ts
-│   │   ├── comments/route.ts
+│   │   ├── comments/route.ts              # GET: approved+public OR own; POST: insert
 │   │   ├── projects/route.ts
 │   │   ├── ratings/route.ts
 │   │   ├── search/route.ts
@@ -113,8 +108,8 @@ src/
 │   └── login/page.tsx
 ├── components/
 │   ├── chat/
-│   │   ├── LessonChatShell.tsx            # کانتینر درس (Client)
-│   │   ├── ChatArea.tsx
+│   │   ├── LessonChatShell.tsx            # کانتینر درس + comment persistence
+│   │   ├── ChatArea.tsx                   # ResizeObserver smart scroll
 │   │   ├── ChatBubble.tsx
 │   │   ├── LessonContent.tsx
 │   │   ├── QuizWidget.tsx
@@ -122,7 +117,7 @@ src/
 │   │   └── GuestTeaser.tsx
 │   ├── sidebar/Sidebar.tsx
 │   └── ui/
-│       ├── Logo.tsx                       # ← لوگو با dark/light switching
+│       ├── Logo.tsx                       # ← <img src="/logo.webp"> ساده
 │       ├── SearchModal.tsx
 │       ├── StarRating.tsx                 # فقط در explore
 │       ├── BountyBadge.tsx
@@ -131,10 +126,22 @@ src/
 │   ├── notion/client.ts                   # همه Notion API + unstable_cache
 │   ├── notion/blocks.ts
 │   ├── supabase/client.ts
-│   ├── supabase/server.ts
+│   ├── supabase/server.ts                 # createClient + createServiceClient
 │   └── utils.ts
 └── types/index.ts
 ```
+
+---
+
+## Supabase Migrations
+
+| فایل | وضعیت | محتوا |
+|---|---|---|
+| `001_initial.sql` | ✅ اجرا شده | schema اولیه |
+| `002_b2b_and_bounties.sql` | ✅ اجرا شده | B2B + bounty |
+| `003_academy_schema.sql` | ✅ اجرا شده | schema آکادمی |
+| `004_progress_slugs.sql` | ✅ اجرا شده | course_slug + lesson_slug |
+| `005_comments_rls.sql` | ⚠️ باید اجرا شود | RLS policies برای `comments` |
 
 ---
 
@@ -142,16 +149,11 @@ src/
 
 ```tsx
 // src/components/ui/Logo.tsx
-// استفاده از <picture> برای dark/light theme switching خودکار
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcSet="/logo-dark.webp" />
-  <img src="/logo-light.webp" alt="آکادمی آنالیفای" width={size} height={size} />
-</picture>
+// یک فایل واحد برای همه تم‌ها — logo.webp در public/
+<img src="/logo.webp" alt="آکادمی آنالیفای" width={size} height={size} />
 ```
 
-فایل‌های لوگو در `public/`:
-- `logo-light.webp` — برای تم روشن (لوگوی تاریک)
-- `logo-dark.webp` — برای تم تاریک (لوگوی سفید)
+فایل لوگو در `public/logo.webp` — commit شده در git.
 
 ---
 
@@ -195,17 +197,6 @@ const _getCourses = unstable_cache(
 ### مشکل رایج: دوره نمایش داده نمی‌شود
 → فیلد **Status** در Notion باید روی **Published** باشد.
 
-### توابع اصلی
-| تابع | کاربرد |
-|---|---|
-| `getCourses(includeAll?)` | filter: Status=Published |
-| `getTopicsByCourse(courseId)` | sort by Order |
-| `getLessonsByTopic(topicId)` | درس‌های یک مبحث |
-| `getLessonById(lessonId)` | با HTML content |
-| `getLessonBySlug(courseSlug, lessonSlug)` | slug-based lookup |
-| `getNextLessonUrl(courseSlug, lesson)` | null = آخرین درس |
-| `searchLessons(query)` | با `url` در نتیجه |
-
 ---
 
 ## Supabase Schema
@@ -213,18 +204,33 @@ const _getCourses = unstable_cache(
 ```
 profiles          — user info, role, org_id, username
 user_progress     — lesson progress + course_slug + lesson_slug (migration 004)
-comments          — بازتاب یادگیری (pending/approved/rejected)
+comments          — بازتاب یادگیری (pending/approved/rejected) + RLS (migration 005)
 projects          — پروژه‌های آپلودشده
 course_ratings    — امتیاز دوره‌ها
 organizations     — B2B
 ```
 
-**Migration 004** (باید اجرا شود):
-```sql
-ALTER TABLE user_progress
-  ADD COLUMN IF NOT EXISTS course_slug TEXT,
-  ADD COLUMN IF NOT EXISTS lesson_slug TEXT;
+---
+
+## Theme — Light Mode اجباری
+
+```css
+/* globals.css */
+/* dark: utility classes فقط با .dark class روی ancestor فعال می‌شن */
+/* چون هیچ‌جا .dark اضافه نمی‌کنیم، همه dark: classها غیرفعالن */
+@variant dark (&:where(.dark, .dark *));
 ```
+
+هرگز `dark:` Tailwind class در کامپوننت‌های جدید اضافه نکن.
+
+---
+
+## Comment System
+
+- **POST** `/api/comments`: insert با `user_id`, `topic_id`, `content`, `status: 'pending'`
+- **GET** `/api/comments?topic_id=X`: authenticated → approved+public OR own; guest → approved+public
+- **LessonChatShell**: بعد از `runLesson()` کامنت‌های DB لود می‌شن و به messages اضافه می‌شن
+- **Optimistic UI**: bubble با temp id → replace با real DB id بعد از موفقیت → rollback + error banner اگه fail شد
 
 ---
 
@@ -245,6 +251,12 @@ ALTER TABLE user_progress
 
 // ❌ StarRating در lesson page
 // ✅ StarRating فقط در explore
+
+// ❌ dark: Tailwind classes — light mode اجباریه
+// ✅ explicit light colors (text-slate-900, bg-white, etc.)
+
+// ❌ scrollIntoView({ behavior: 'smooth' }) در typewriter loop
+// ✅ ResizeObserver + el.scrollTop = el.scrollHeight (instant)
 
 // ✅ Promise.all برای parallel fetching
 const [nextUrl, supabase] = await Promise.all([getNextLessonUrl(...), createClient()]);
