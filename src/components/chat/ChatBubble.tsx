@@ -94,27 +94,24 @@ export default function ChatBubble({
   }
 
   // ── System / admin-reply text ─────────────────────────────────────
-  // ALL system messages (lesson content AND admin replies) go through
-  // SystemBubble which forces /logo.webp. Admin replies also get the
-  // "پشتیبانی آنالیفای" label and indentation.
+  // ALL role='system' messages go through SystemBubble which FORCES /logo.webp.
+  // Admin replies (isReply=true) additionally get indentation + branded badge.
+  // URLs in system content are clickable (instructor-authored, trusted).
   if (isSystem) {
     return (
-      <SystemBubble isStreaming={isStreaming} isReply={message.isReply}>
-        {/*
-          System messages use LessonContent (dangerouslySetInnerHTML) so that
-          instructor-written URLs become clickable <a> tags (target="_blank").
-          User messages never go through LessonContent — see UserBubble below.
-        */}
+      <SystemBubble isStreaming={isStreaming} isReply={!!message.isReply}>
         <LessonContent content={message.content} />
       </SystemBubble>
     );
   }
 
   // ── User text bubble (own comment) ───────────────────────────────
+  // Anti-spam: content rendered via PlainUserText (NO dangerouslySetInnerHTML,
+  // NO markdown link parsing — URLs stay as inert plain text).
   return (
     <div className={cn('flex flex-col items-start gap-1', message.isReply && 'mr-10')}>
       <div className="flex items-start gap-2">
-        {/* Avatar: image → onError falls back to initials circle */}
+        {/* Avatar: profile image → onError → initials circle */}
         <UserAvatar avatarUrl={message.avatarUrl} displayName={message.displayName} />
 
         {/* Bubble — plain text only, no HTML, no links (anti-spam) */}
