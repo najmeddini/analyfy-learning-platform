@@ -58,8 +58,14 @@
 - [x] Migration 006 — `email` column در `profiles` + backfill + trigger آپدیت (فایل در repo)
 - [x] Migration 007 — `course_id`, `lesson_id`, `parent_id` در `comments` (فایل در repo)
 - [x] Admin comments dashboard `/admin/comments` با service role
-- [x] Admin CommentsTable — فیلتر status/course، ستون Location، Quick Reply inline
+- [x] Admin CommentsTable — فیلتر text/status/course/lesson/privacy/thread، Bulk Approve، Quick Reply inline
 - [x] Server Action `replyAndApprove` — insert reply + auto-approve اصلی
+- [x] Server Action `bulkApproveComments(ids[])` — batch approve در یک query
+- [x] Comment fetching bug fix — حذف profiles join شکسته، two-query pattern، `is_own` flag
+- [x] GET /api/comments — enriched با display_name + is_own (بدون profiles FK)
+- [x] LessonChatShell — own comments در chat، community Q&As در side drawer جداگانه
+- [x] GuestTeaser — ۳ جدیدترین approved+public Q&A + CTA بهبودیافته
+- [x] همه متون UI: "نظرات"/"بازتاب" → "پرسش و پاسخ"
 
 ### ⚠️ باید کاربر انجام دهد (به ترتیب)
 - [ ] **Migration 005** — `supabase/migrations/005_comments_rls.sql`

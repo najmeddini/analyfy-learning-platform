@@ -48,13 +48,18 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  // No manual status filter here — Postgres RLS handles visibility:
-  //   • "comments: own read"           → user sees their own (any status)
+  // Identify the current user so we can mark is_own on each comment
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // No manual status filter — Postgres RLS handles visibility:
+  //   • "comments: own read"            → user sees their own (any status)
   //   • "comments: public approved read" → everyone sees approved+public_consent
-  // Combining both policies gives each user exactly what they should see.
+  // NOTE: profiles(...) join is intentionally omitted — there is no direct FK
+  // from comments.user_id to profiles.user_id in PostgREST. We do a separate
+  // profiles query below and merge in JS (same pattern as admin page).
   const { data, error } = await supabase
     .from('comments')
-    .select('id, content, status, created_at, user_id, is_public_consent, profiles(display_name, avatar_url)')
+    .select('id, content, status, created_at, user_id, is_public_consent, parent_id, lesson_id')
     .eq('topic_id', topic_id)
     .order('created_at', { ascending: true });
 
@@ -62,5 +67,25 @@ export async function GET(request: Request) {
     console.error('Comment GET error:', error.code, error.message, error.details);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ comments: data ?? [] });
+
+  const comments = data ?? [];
+
+  // Fetch display names (two-query pattern — no direct FK to profiles)
+  const userIds = [...new Set(comments.map(c => c.user_id))];
+  let profileMap: Record<string, { display_name: string | null }> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, display_name')
+      .in('user_id', userIds);
+    profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, { display_name: p.display_name }]));
+  }
+
+  const enriched = comments.map(c => ({
+    ...c,
+    display_name: profileMap[c.user_id]?.display_name ?? null,
+    is_own: user ? c.user_id === user.id : false,
+  }));
+
+  return NextResponse.json({ comments: enriched });
 }

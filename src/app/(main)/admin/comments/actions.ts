@@ -34,6 +34,18 @@ export async function rejectComment(commentId: string) {
   revalidatePath('/admin/comments');
 }
 
+export async function bulkApproveComments(ids: string[]) {
+  await assertAdmin();
+  if (!ids.length) return;
+  const service = await createServiceClient();
+  const { error } = await service
+    .from('comments')
+    .update({ status: 'approved' })
+    .in('id', ids);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/comments');
+}
+
 export async function replyAndApprove(
   parentId: string,
   replyContent: string,

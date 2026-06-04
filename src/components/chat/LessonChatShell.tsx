@@ -7,7 +7,14 @@ import { nanoid } from '@/lib/nanoid';
 import ChatArea from './ChatArea';
 import GuestTeaser from './GuestTeaser';
 import BountyBadge from '../ui/BountyBadge';
-import { ArrowRight, Send } from 'lucide-react';
+import { ArrowRight, Send, Users, X, MessageCircle } from 'lucide-react';
+
+interface CommunityComment {
+  id: string;
+  content: string;
+  display_name: string | null;
+  created_at: string;
+}
 
 interface Props {
   lesson: Lesson;
@@ -73,9 +80,11 @@ export default function LessonChatShell({
   const [isStreaming, setIsStreaming] = useState(false);
   const [lessonDone, setLessonDone] = useState(isAlreadyCompleted);
   const [chatInput, setChatInput] = useState('');
-  const [isOptOut, setIsOptOut] = useState(false); // unchecked = public by default
+  const [isOptOut, setIsOptOut] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [communityComments, setCommunityComments] = useState<CommunityComment[]>([]);
+  const [showCommunity, setShowCommunity] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialized = useRef(false);
 
@@ -118,21 +127,43 @@ export default function LessonChatShell({
     await loadComments();
   }
 
-  /** Fetch this topic's comments and append them as user bubbles. */
+  /** Fetch this topic's comments.
+   *  - Own comments → injected into the personal chat stream.
+   *  - Others' approved + public top-level comments → community drawer state.
+   *  Guests return early — GuestTeaser handles their view.
+   */
   async function loadComments() {
-    if (!user) return; // guests see GuestTeaser, not individual comments
+    if (!user) return;
     try {
       const res = await fetch(`/api/comments?topic_id=${encodeURIComponent(lesson.topic_id)}`);
       if (!res.ok) return;
-      const { comments } = await res.json();
-      if (!comments?.length) return;
+      const { comments: all } = await res.json();
+      if (!all?.length) return;
+
+      type ApiComment = {
+        id: string;
+        content: string;
+        status: string;
+        created_at: string;
+        user_id: string;
+        is_own: boolean;
+        is_public_consent: boolean;
+        display_name: string | null;
+        parent_id: string | null;
+      };
+
+      const own: ApiComment[] = all.filter((c: ApiComment) => c.is_own);
+      const community: ApiComment[] = all.filter(
+        (c: ApiComment) => !c.is_own && c.status === 'approved' && c.is_public_consent && !c.parent_id
+      );
+
+      // Inject own comments into chat stream
       setMessages(prev => {
-        // Deduplicate: skip any comment whose id is already in the list
         const existingIds = new Set(prev.map(m => m.id));
-        const newMsgs: ChatMessage[] = comments
-          .filter((c: { id: string }) => !existingIds.has(c.id))
-          .map((c: { id: string; content: string; status: string; created_at: string }) => ({
-            id: c.id,          // real DB id — survives refreshes
+        const newMsgs: ChatMessage[] = own
+          .filter(c => !existingIds.has(c.id))
+          .map(c => ({
+            id: c.id,
             role: 'user' as const,
             content: c.status === 'pending'
               ? `${c.content}\n\n_در انتظار تأیید..._`
@@ -142,6 +173,14 @@ export default function LessonChatShell({
           }));
         return [...prev, ...newMsgs];
       });
+
+      // Make community Q&As available in the drawer
+      setCommunityComments(community.map(c => ({
+        id: c.id,
+        content: c.content,
+        display_name: c.display_name,
+        created_at: c.created_at,
+      })));
     } catch (err) {
       console.error('loadComments error:', err);
     }
@@ -283,7 +322,7 @@ export default function LessonChatShell({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" dir="rtl">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
         className="px-4 py-3 border-b flex items-center gap-3 flex-shrink-0"
@@ -325,12 +364,30 @@ export default function LessonChatShell({
 
       {/* ── Bottom section ──────────────────────────────────────────────── */}
       {user ? (
-        /* Permanent chat input for authenticated users */
         <div
           className="border-t flex-shrink-0 px-4 py-3 space-y-2"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
         >
-          <div className="max-w-2xl mx-auto w-full">
+          <div className="max-w-2xl mx-auto w-full space-y-2">
+            {/* Community Q&A button */}
+            {communityComments.length > 0 && lessonDone && (
+              <button
+                onClick={() => setShowCommunity(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-medium transition-colors hover:opacity-80"
+                style={{ backgroundColor: 'var(--color-muted)', color: 'var(--color-muted-foreground)' }}
+              >
+                <Users size={15} />
+                مشاهده پرسش و پاسخ‌های سایر دانشجویان
+                <span
+                  className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                  style={{ backgroundColor: '#6c63ff20', color: '#6c63ff' }}
+                >
+                  {communityComments.length}
+                </span>
+              </button>
+            )}
+
+            {/* Chat input */}
             <div
               className="flex items-end gap-2 rounded-2xl border px-3 py-2 focus-within:border-[#6c63ff] transition-colors"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--background)' }}
@@ -355,7 +412,7 @@ export default function LessonChatShell({
               </button>
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer mt-1.5 px-1">
+            <label className="flex items-center gap-2 cursor-pointer px-1">
               <input
                 type="checkbox"
                 checked={isOptOut}
@@ -364,13 +421,15 @@ export default function LessonChatShell({
                 style={{ accentColor: '#6c63ff' }}
               />
               <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-                نمی‌خواهم این بازتاب به صورت عمومی نمایش داده شود
+                نمی‌خواهم این سوال/نظر به‌صورت عمومی نمایش داده شود
               </span>
             </label>
 
             {sendError && (
-              <div className="flex items-center justify-between gap-2 mt-1.5 px-3 py-2 rounded-xl text-xs"
-                style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>
+              <div
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs"
+                style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}
+              >
                 <span>{sendError}</span>
                 <button onClick={() => setSendError(null)} className="font-bold hover:opacity-70">✕</button>
               </div>
@@ -380,6 +439,63 @@ export default function LessonChatShell({
       ) : (
         /* Guest teaser — shown after lesson finishes */
         lessonDone && <GuestTeaser topicId={lesson.topic_id} />
+      )}
+
+      {/* ── Community Q&A Drawer ─────────────────────────────────────────── */}
+      {showCommunity && (
+        <div className="fixed inset-0 z-50 flex" dir="rtl">
+          {/* Backdrop */}
+          <div className="flex-1 bg-black/30" onClick={() => setShowCommunity(false)} />
+          {/* Panel — slides in from the right */}
+          <div
+            className="w-96 max-w-full h-full flex flex-col shadow-2xl"
+            style={{ backgroundColor: 'var(--color-sidebar)', borderLeft: '1px solid var(--color-border)' }}
+          >
+            <div
+              className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <div className="flex items-center gap-2">
+                <MessageCircle size={16} style={{ color: '#6c63ff' }} />
+                <h2 className="font-bold text-sm">پرسش و پاسخ دانشجویان</h2>
+              </div>
+              <button
+                onClick={() => setShowCommunity(false)}
+                className="p-1.5 rounded-lg hover:bg-[var(--color-muted)] transition-colors"
+              >
+                <X size={16} style={{ color: 'var(--color-muted-foreground)' }} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {communityComments.length === 0 ? (
+                <p
+                  className="text-sm text-center py-10"
+                  style={{ color: 'var(--color-muted-foreground)' }}
+                >
+                  هنوز سوال عمومی ثبت نشده
+                </p>
+              ) : (
+                communityComments.map(c => (
+                  <div
+                    key={c.id}
+                    className="rounded-2xl px-4 py-3 space-y-1.5"
+                    style={{ backgroundColor: 'var(--color-muted)' }}
+                  >
+                    <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
+                      {c.display_name ?? 'دانش‌آموز'}
+                    </p>
+                    <p className="text-sm leading-relaxed">{c.content}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                      {new Date(c.created_at).toLocaleDateString('fa-IR', {
+                        month: 'short', day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

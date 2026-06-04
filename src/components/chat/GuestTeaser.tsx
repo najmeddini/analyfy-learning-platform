@@ -2,24 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { Comment } from '@/types';
-import { MessageSquare, Lock } from 'lucide-react';
+import { MessageCircle, LogIn } from 'lucide-react';
+
+interface GuestComment {
+  id: string;
+  content: string;
+  display_name: string | null;
+  created_at: string;
+}
 
 interface Props {
   topicId: string;
 }
 
 export default function GuestTeaser({ topicId }: Props) {
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [recent, setRecent] = useState<GuestComment[]>([]);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    fetch(`/api/comments?topic_id=${topicId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const all: Comment[] = d.comments ?? [];
+    fetch(`/api/comments?topic_id=${encodeURIComponent(topicId)}`)
+      .then(r => r.json())
+      .then(d => {
+        const all: GuestComment[] = d.comments ?? [];
         setTotal(all.length);
-        setComments(all.slice(0, 3));
+        // Show the 3 most recent (API returns ascending; take last 3)
+        setRecent(all.slice(-3));
       });
   }, [topicId]);
 
@@ -27,47 +34,55 @@ export default function GuestTeaser({ topicId }: Props) {
     <div
       className="border-t flex-shrink-0"
       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-sidebar)' }}
+      dir="rtl"
     >
-      {comments.length > 0 && (
+      {/* 3 most-recent approved public Q&As */}
+      {recent.length > 0 && (
         <div className="px-4 pt-4 space-y-3">
-          <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-muted-foreground)' }}>
-            <MessageSquare size={13} />
-            پاسخ‌های دیگران
+          <p
+            className="text-xs font-semibold flex items-center gap-1.5"
+            style={{ color: 'var(--color-muted-foreground)' }}
+          >
+            <MessageCircle size={13} />
+            پرسش و پاسخ دانشجویان
           </p>
           <ul className="space-y-2">
-            {comments.map((c) => (
+            {recent.map(c => (
               <li
                 key={c.id}
-                className="px-3 py-2 rounded-xl text-sm"
+                className="px-3 py-2.5 rounded-xl text-sm"
                 style={{ backgroundColor: 'var(--color-muted)' }}
               >
-                <p className="font-medium text-xs mb-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-                  {c.profiles?.display_name ?? 'دانش‌آموز'}
+                <p className="font-semibold text-xs mb-0.5" style={{ color: '#6c63ff' }}>
+                  {c.display_name ?? 'دانش‌آموز'}
                 </p>
-                <p className="line-clamp-2">{c.content}</p>
+                <p className="line-clamp-2 leading-relaxed">{c.content}</p>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* CTA */}
-      <div className="px-4 py-4 flex items-center gap-3">
+      {/* CTA box */}
+      <div
+        className="mx-4 my-4 rounded-2xl px-4 py-4 flex items-center gap-3"
+        style={{ backgroundColor: '#6c63ff10', border: '1px solid #6c63ff30' }}
+      >
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#6c63ff18' }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: '#6c63ff20' }}
         >
-          <Lock size={14} style={{ color: '#6c63ff' }} />
+          <LogIn size={16} style={{ color: '#6c63ff' }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">
-            {total > 3
-              ? `برای مشاهده ${total - 3} پاسخ دیگر وارد شوید`
-              : 'وارد شوید تا پیشرفت‌تان ذخیره شود'}
+          <p className="text-sm font-semibold leading-snug">
+            برای مشاهده تمام پرسش و پاسخ‌ها و ثبت سوال خود، وارد شوید
           </p>
-          <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-            پاسخ بنویسید، پیشرفت را دنبال کنید
-          </p>
+          {total > 3 && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
+              {total} پرسش و پاسخ در این درس
+            </p>
+          )}
         </div>
         <Link
           href="/login"

@@ -49,9 +49,12 @@ export default async function AdminCommentsPage() {
     profile: profileMap[c.user_id] ?? null,
   }));
 
-  // Distinct course_ids for filter dropdown (exclude nulls)
+  // Distinct course/lesson ids for filter dropdowns (exclude nulls)
   const distinctCourses = [...new Set(
     rows.map(r => r.course_id).filter((c): c is string => !!c)
+  )];
+  const distinctLessons = [...new Set(
+    rows.map(r => r.lesson_id).filter((l): l is string => !!l)
   )];
 
   return (
@@ -61,8 +64,8 @@ export default async function AdminCommentsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black text-slate-800">مدیریت کامنت‌ها</h1>
-            <p className="text-sm text-slate-500 mt-1">بررسی، تأیید و پاسخ به بازتاب‌های یادگیری کاربران</p>
+            <h1 className="text-2xl font-black text-slate-800">پرسش و پاسخ‌ها</h1>
+            <p className="text-sm text-slate-500 mt-1">بررسی، تأیید و پاسخ به سوالات دانشجویان</p>
           </div>
           <a href="/admin" className="text-sm text-indigo-600 hover:underline">← پنل ادمین</a>
         </div>
@@ -75,7 +78,7 @@ export default async function AdminCommentsPage() {
         )}
 
         {/* Client component handles filters, table, reply UI */}
-        <CommentsTable rows={rows} distinctCourses={distinctCourses} />
+        <CommentsTable rows={rows} distinctCourses={distinctCourses} distinctLessons={distinctLessons} />
       </div>
     </div>
   );
