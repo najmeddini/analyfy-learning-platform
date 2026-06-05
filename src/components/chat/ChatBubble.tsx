@@ -149,6 +149,27 @@ export default function ChatBubble({
   // NO markdown link parsing — URLs stay as inert plain text).
   return (
     <div className={cn('flex flex-col items-start gap-1', message.isReply && 'mr-10')}>
+
+      {/* ── Name + badge slot (shown above the bubble row) ─────────
+          displayName: right-aligned user identity label.
+          badges slot: flex container on the left — will be populated
+          with <UserBadges> chips once the badge system is wired up. */}
+      {message.displayName && (
+        <div className="flex items-center justify-between w-full pl-1 pr-9 mb-0.5">
+          {/* Left: badge chips placeholder — populated in a future PR */}
+          <div className="flex items-center gap-1 min-h-[18px]">
+            {/* badge chips will render here */}
+          </div>
+          {/* Right: display name */}
+          <span
+            className="text-xs font-semibold select-none"
+            style={{ color: '#6c63ff' }}
+          >
+            {message.displayName}
+          </span>
+        </div>
+      )}
+
       <div className="flex items-start gap-2">
         {/* Avatar: profile image → onError → initials circle */}
         <UserAvatar avatarUrl={message.avatarUrl} displayName={message.displayName} />

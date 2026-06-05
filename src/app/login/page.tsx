@@ -188,13 +188,25 @@ function SignupPanel() {
     let quota = owner.invite_quota;
 
     if (usedCount >= quota) {
-      // Check 7-day auto-renewal window
+      // ── Check 7-day upgrade window ────────────────────────
       const createdAt = new Date(owner.invite_created_at);
       const daysSince = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
 
       if (daysSince <= 7) {
-        // Quota filled within first week — bump by 10 and allow signup
-        quota = usedCount + 10;
+        // Fetch the upgrade_levels ladder from system_settings
+        const { data: settings } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'invite_rules')
+          .single();
+
+        const levels: number[] =
+          settings?.value?.upgrade_levels ?? [10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 400, 500, 1000, 5000];
+
+        // Find the next tier strictly above the current quota
+        const nextTier = levels.find(l => l > quota);
+        quota = nextTier ?? quota + 10;   // fallback: +10 if already past all tiers
+
         await supabase
           .from('profiles')
           .update({ invite_quota: quota })
