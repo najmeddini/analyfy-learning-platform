@@ -25,13 +25,22 @@ export default function AdminPanel() {
           >
             ادمین
           </span>
-          <a
-            href="/admin/comments"
-            className="mr-auto text-xs px-3 py-1.5 rounded-xl text-white font-bold hover:opacity-90"
-            style={{ backgroundColor: '#6c63ff' }}
-          >
-            مدیریت کامنت‌ها ←
-          </a>
+          <div className="mr-auto flex items-center gap-2">
+            <a
+              href="/admin/comments"
+              className="text-xs px-3 py-1.5 rounded-xl text-white font-bold hover:opacity-90"
+              style={{ backgroundColor: '#6c63ff' }}
+            >
+              کامنت‌ها ←
+            </a>
+            <a
+              href="/admin/invites"
+              className="text-xs px-3 py-1.5 rounded-xl text-white font-bold hover:opacity-90"
+              style={{ backgroundColor: '#8b5cf6' }}
+            >
+              دعوتنامه‌ها ←
+            </a>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -13,6 +13,8 @@ interface CommunityReply {
   id: string;
   content: string;
   is_admin_reply: boolean;
+  display_name: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -246,6 +248,8 @@ export default function LessonChatShell({
               id: r.id,
               content: r.content,
               is_admin_reply: !r.is_own,
+              display_name: r.display_name,
+              avatar_url: r.avatar_url,
               created_at: r.created_at,
             })),
         })),
@@ -604,19 +608,25 @@ export default function LessonChatShell({
                               alt="آکادمی آنالیفای"
                               className="w-5 h-5 rounded-full object-cover flex-shrink-0"
                             />
+                          ) : r.avatar_url ? (
+                            <img
+                              src={r.avatar_url}
+                              alt={r.display_name ?? ''}
+                              className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                            />
                           ) : (
                             <div
                               className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                               style={{ backgroundColor: '#6c63ff' }}
                             >
-                              ؟
+                              {(r.display_name?.[0] ?? '؟').toUpperCase()}
                             </div>
                           )}
                           <span
                             className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
                             style={{ backgroundColor: r.is_admin_reply ? '#6c63ff' : '#94a3b8' }}
                           >
-                            {r.is_admin_reply ? 'پشتیبانی آنالیفای' : 'دانشجو'}
+                            {r.is_admin_reply ? 'پشتیبانی آنالیفای' : (r.display_name ?? 'دانشجو')}
                           </span>
                           <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
                             {new Date(r.created_at).toLocaleDateString('fa-IR', {

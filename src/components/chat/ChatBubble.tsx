@@ -150,13 +150,14 @@ export default function ChatBubble({
   return (
     <div className={cn('flex flex-col items-start gap-1', message.isReply && 'mr-10')}>
 
-      {/* ── Name + badge slot (shown above the bubble row) ─────────
-          displayName: right-aligned user identity label.
-          badges slot: flex container on the left — will be populated
-          with <UserBadges> chips once the badge system is wired up. */}
-      {message.displayName && (
+      {/* ── Name + badge slot ──────────────────────────────────────
+          Only rendered for OTHER people's messages (status===undefined).
+          Own messages always have status='pending'|'approved'|'rejected',
+          so we suppress the header for them — showing your own name above
+          your own bubble is redundant and visually noisy. */}
+      {message.displayName && message.status === undefined && (
         <div className="flex items-center justify-between w-full pl-1 pr-9 mb-0.5">
-          {/* Left: badge chips placeholder — populated in a future PR */}
+          {/* Left: badge chips — populated when badge system ships */}
           <div className="flex items-center gap-1 min-h-[18px]">
             {/* badge chips will render here */}
           </div>
