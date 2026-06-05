@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 async function assertAdmin() {
   const supabase = await createClient();
@@ -18,7 +19,10 @@ async function assertAdmin() {
 
 export async function approveComment(commentId: string) {
   await assertAdmin();
-  const service = await createServiceClient();
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
   const { error } = await service
     .from('comments').update({ status: 'approved' }).eq('id', commentId);
   if (error) throw new Error(error.message);
@@ -27,7 +31,10 @@ export async function approveComment(commentId: string) {
 
 export async function rejectComment(commentId: string) {
   await assertAdmin();
-  const service = await createServiceClient();
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
   const { error } = await service
     .from('comments').update({ status: 'rejected' }).eq('id', commentId);
   if (error) throw new Error(error.message);
@@ -37,7 +44,10 @@ export async function rejectComment(commentId: string) {
 export async function bulkApproveComments(ids: string[]) {
   await assertAdmin();
   if (!ids.length) return;
-  const service = await createServiceClient();
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
   const { error } = await service
     .from('comments')
     .update({ status: 'approved' })
@@ -52,7 +62,10 @@ export async function replyAndApprove(
   context: { topic_id: string; course_id: string | null; lesson_id: string | null }
 ) {
   const admin = await assertAdmin();
-  const service = await createServiceClient();
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   // Fetch original comment to inherit context if not provided
   const { data: original } = await service

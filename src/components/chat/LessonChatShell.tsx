@@ -154,7 +154,10 @@ export default function LessonChatShell({
         parent_id: string | null;
       };
 
-      const own: ApiComment[] = all.filter((c: ApiComment) => c.is_own);
+      // Only top-level comments (parent_id === null) belong in the user's own chat
+      // stream. Admin replies the current user authored to *other* people also
+      // have is_own=true (same user_id) but must not appear here.
+      const own: ApiComment[] = all.filter((c: ApiComment) => c.is_own && c.parent_id === null);
       const ownIds = new Set(own.map((c: ApiComment) => c.id));
 
       // Approved admin/instructor replies to the user's own comments
