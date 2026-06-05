@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { Filter } from 'bad-words';
+
+// Never cache this route — comment state changes frequently and we need
+// fresh display_name / avatar_url on every request.
+export const dynamic = 'force-dynamic';
 
 const filter = new Filter();
 
@@ -70,16 +75,27 @@ export async function GET(request: Request) {
 
   const comments = data ?? [];
 
-  // Fetch display names (two-query pattern — no direct FK to profiles)
+  // Fetch display names — two-query pattern (no direct FK to profiles in PostgREST).
+  // MUST use a vanilla service-role client here, not the SSR anon client.
+  // Reason: the RLS policy "profiles: own read" restricts supabase.from('profiles')
+  // to only returning the currently authenticated user's own row.  Every other
+  // commenter's display_name / avatar_url comes back as null, causing the
+  // Community Drawer to show "دانشجو" and no avatar for everyone else.
   const userIds = [...new Set(comments.map(c => c.user_id))];
   let profileMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase
+    const serviceClient = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { data: profiles } = await serviceClient
       .from('profiles')
       .select('user_id, display_name, avatar_url')
       .in('user_id', userIds);
     profileMap = Object.fromEntries(
-      (profiles ?? []).map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }])
+      (profiles ?? []).map((p: { user_id: string; display_name: string | null; avatar_url: string | null }) =>
+        [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]
+      )
     );
   }
 

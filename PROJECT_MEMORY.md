@@ -41,6 +41,40 @@
 - `ChatBubble`: render `<span className="text-xs text-slate-400 mr-9 mt-0.5">در انتظار تأیید...</span>`
   **below** the bubble row (not inside the text), only when `message.status === 'pending'`.
 
+## RULE 5 — Data Fetching: Always Bypass RLS for Profile Enrichment
+
+**DATA FETCHING RULE:** Whenever querying user-generated content (comments,
+replies, etc.) and then enriching it with author identity from `profiles`
+(display_name, avatar_url), the **profiles sub-query MUST use the vanilla
+`@supabase/supabase-js` service-role client**, never the SSR anon client.
+
+**Why:** The RLS policy `"profiles: own read"` restricts
+`supabase.from('profiles')` (anon/SSR client) to returning only the currently
+authenticated user's own row.  Queries for other users' profiles silently
+return empty — causing `display_name` and `avatar_url` to be `null` for every
+commenter except the viewer themselves.
+
+**Pattern (copy-paste template):**
+```ts
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
+const serviceClient = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+const { data: profiles } = await serviceClient
+  .from('profiles')
+  .select('user_id, display_name, avatar_url')
+  .in('user_id', userIds);
+```
+
+**Also add** `export const dynamic = 'force-dynamic'` to any API route that
+returns user-generated content, to prevent stale cached responses.
+
+**PostgREST join note:** `.select('*, profiles(display_name, avatar_url)')` does
+NOT work — there is no direct FK between `comments.user_id` and `profiles.user_id`
+in PostgREST.  Always use the two-query + JS merge pattern.
+
 ---
 
 ## Additional Invariants
