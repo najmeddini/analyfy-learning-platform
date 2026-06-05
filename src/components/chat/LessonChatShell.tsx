@@ -9,12 +9,20 @@ import GuestTeaser from './GuestTeaser';
 import BountyBadge from '../ui/BountyBadge';
 import { ArrowRight, Send, Users, X, MessageCircle } from 'lucide-react';
 
+interface CommunityReply {
+  id: string;
+  content: string;
+  is_admin_reply: boolean;
+  created_at: string;
+}
+
 interface CommunityComment {
   id: string;
   content: string;
   display_name: string | null;
   avatar_url: string | null;
   created_at: string;
+  replies: CommunityReply[];
 }
 
 interface Props {
@@ -154,23 +162,26 @@ export default function LessonChatShell({
         parent_id: string | null;
       };
 
-      // Only top-level comments (parent_id === null) belong in the user's own chat
-      // stream. Admin replies the current user authored to *other* people also
-      // have is_own=true (same user_id) but must not appear here.
-      const own: ApiComment[] = all.filter((c: ApiComment) => c.is_own && c.parent_id === null);
-      const ownIds = new Set(own.map((c: ApiComment) => c.id));
+      // Own top-level comments (questions the current user asked)
+      const ownTopLevel: ApiComment[] = all.filter(
+        (c: ApiComment) => c.is_own && c.parent_id === null,
+      );
+      const ownIds = new Set(ownTopLevel.map((c: ApiComment) => c.id));
 
-      // Approved admin/instructor replies to the user's own comments
-      const adminReplies: ApiComment[] = all.filter(
+      // Replies to the user's own top-level comments (from anyone, including
+      // admin). These belong in the personal chat stream.
+      // Replies authored by the current user to OTHER people's comments have
+      // is_own=true but a parent_id NOT in ownIds — they are excluded here,
+      // which prevents admin-chat pollution.
+      const repliesToOwn: ApiComment[] = all.filter(
         (c: ApiComment) =>
-          !c.is_own &&
           c.parent_id !== null &&
           ownIds.has(c.parent_id) &&
           c.status === 'approved',
       );
 
-      // Merge own + admin replies and sort chronologically
-      const toInjectIntoChat = [...own, ...adminReplies].sort(
+      // Merge own top-level + replies, sort chronologically
+      const toInjectIntoChat = [...ownTopLevel, ...repliesToOwn].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
 
@@ -180,16 +191,17 @@ export default function LessonChatShell({
         const newMsgs: ChatMessage[] = toInjectIntoChat
           .filter(c => !existingIds.has(c.id))
           .map(c => {
-            const isAdminReply = !c.is_own;
+            const isReply = c.parent_id !== null; // reply to user's own comment
+            const isAdminReply = isReply && !c.is_own;
             return {
               id: c.id,
               role: isAdminReply ? ('system' as const) : ('user' as const),
-              content: c.content,   // never pollute content with status text
+              content: c.content,
               type: 'text' as const,
               timestamp: new Date(c.created_at),
               avatarUrl:   isAdminReply ? '/logo.webp' : (c.avatar_url ?? null),
               displayName: isAdminReply ? null : (c.display_name ?? null),
-              isReply:     isAdminReply,
+              isReply,
               status:      c.is_own
                 ? (c.status as 'pending' | 'approved' | 'rejected')
                 : undefined,
@@ -199,20 +211,41 @@ export default function LessonChatShell({
       });
 
       // Others' approved + public top-level questions → community drawer
-      const community: ApiComment[] = all.filter(
+      const communityTopLevel: ApiComment[] = all.filter(
         (c: ApiComment) =>
           !c.is_own &&
           c.status === 'approved' &&
           c.is_public_consent &&
           c.parent_id === null,
       );
-      setCommunityComments(community.map(c => ({
-        id: c.id,
-        content: c.content,
-        display_name: c.display_name,
-        avatar_url: c.avatar_url,
-        created_at: c.created_at,
-      })));
+      const communityIds = new Set(communityTopLevel.map((c: ApiComment) => c.id));
+
+      // Approved replies to community questions (admin answers)
+      const communityReplies: ApiComment[] = all.filter(
+        (c: ApiComment) =>
+          c.parent_id !== null &&
+          communityIds.has(c.parent_id) &&
+          c.status === 'approved',
+      );
+
+      setCommunityComments(
+        communityTopLevel.map(c => ({
+          id: c.id,
+          content: c.content,
+          display_name: c.display_name,
+          avatar_url: c.avatar_url,
+          created_at: c.created_at,
+          replies: communityReplies
+            .filter(r => r.parent_id === c.id)
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            .map(r => ({
+              id: r.id,
+              content: r.content,
+              is_admin_reply: !r.is_own,
+              created_at: r.created_at,
+            })),
+        })),
+      );
     } catch (err) {
       console.error('loadComments error:', err);
     }
@@ -517,37 +550,79 @@ export default function LessonChatShell({
                 </p>
               ) : (
                 communityComments.map(c => (
-                  <div
-                    key={c.id}
-                    className="rounded-2xl px-4 py-3 space-y-2"
-                    style={{ backgroundColor: 'var(--color-muted)' }}
-                  >
-                    {/* Avatar row */}
-                    <div className="flex items-center gap-2">
-                      {c.avatar_url ? (
-                        <img
-                          src={c.avatar_url}
-                          alt={c.display_name ?? ''}
-                          className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: '#6c63ff' }}
-                        >
-                          {(c.display_name?.[0] ?? '؟').toUpperCase()}
-                        </div>
-                      )}
-                      <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
-                        {c.display_name ?? 'دانش‌آموز'}
-                      </p>
-                      <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
-                        {new Date(c.created_at).toLocaleDateString('fa-IR', {
-                          month: 'short', day: 'numeric',
-                        })}
-                      </p>
+                  <div key={c.id} className="space-y-2">
+                    {/* Question bubble */}
+                    <div
+                      className="rounded-2xl px-4 py-3 space-y-2"
+                      style={{ backgroundColor: 'var(--color-muted)' }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {c.avatar_url ? (
+                          <img
+                            src={c.avatar_url}
+                            alt={c.display_name ?? ''}
+                            className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                            style={{ backgroundColor: '#6c63ff' }}
+                          >
+                            {(c.display_name?.[0] ?? '؟').toUpperCase()}
+                          </div>
+                        )}
+                        <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
+                          {c.display_name ?? 'دانش‌آموز'}
+                        </p>
+                        <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
+                          {new Date(c.created_at).toLocaleDateString('fa-IR', {
+                            month: 'short', day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <p className="text-sm leading-relaxed">{c.content}</p>
                     </div>
-                    <p className="text-sm leading-relaxed">{c.content}</p>
+
+                    {/* Replies — indented, admin replies use logo */}
+                    {c.replies.map(r => (
+                      <div
+                        key={r.id}
+                        className="mr-6 rounded-2xl px-4 py-3 space-y-2 border-r-2"
+                        style={{
+                          backgroundColor: r.is_admin_reply ? '#eef2ff' : 'var(--color-muted)',
+                          borderColor: r.is_admin_reply ? '#6c63ff' : 'var(--color-border)',
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          {r.is_admin_reply ? (
+                            <img
+                              src="/logo.webp"
+                              alt="آکادمی آنالیفای"
+                              className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                              style={{ backgroundColor: '#6c63ff' }}
+                            >
+                              ؟
+                            </div>
+                          )}
+                          <span
+                            className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: r.is_admin_reply ? '#6c63ff' : '#94a3b8' }}
+                          >
+                            {r.is_admin_reply ? 'پشتیبانی آنالیفای' : 'دانش‌آموز'}
+                          </span>
+                          <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
+                            {new Date(r.created_at).toLocaleDateString('fa-IR', {
+                              month: 'short', day: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                        <p className="text-sm leading-relaxed">{r.content}</p>
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
