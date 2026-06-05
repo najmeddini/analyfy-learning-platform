@@ -56,6 +56,17 @@ export async function bulkApproveComments(ids: string[]) {
   revalidatePath('/admin/comments');
 }
 
+export async function deleteComment(commentId: string) {
+  await assertAdmin();
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { error } = await service.from('comments').delete().eq('id', commentId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/comments');
+}
+
 export async function replyAndApprove(
   parentId: string,
   replyContent: string,

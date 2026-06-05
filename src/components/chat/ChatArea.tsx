@@ -27,10 +27,22 @@ export default function ChatArea({
   // Stored in a ref so reads/writes never cause re-renders.
   const shouldFollowRef = useRef(true);
 
-  // ── Scroll helper: instant jump, never animates ──────────────────
+  // Track streaming state in a ref so the ResizeObserver callback can read it
+  // without becoming a stale closure or triggering effect re-runs.
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
+
+  // ── Scroll helper ─────────────────────────────────────────────────
+  // Instant during streaming (called every ~14 ms — smooth would queue up).
+  // Smooth for discrete new messages (submit, loadComments injection).
   const scrollToBottom = useCallback(() => {
     const el = containerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    if (isStreamingRef.current) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
   }, []);
 
   // ── onScroll: user moved the container manually ──────────────────

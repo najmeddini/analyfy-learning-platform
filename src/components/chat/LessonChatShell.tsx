@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Lesson, Topic, ChatMessage, QuizQuestion } from '@/types';
 import { nanoid } from '@/lib/nanoid';
@@ -96,6 +96,7 @@ export default function LessonChatShell({
   const [showCommunity, setShowCommunity] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialized = useRef(false);
+  const [, startTransition] = useTransition();
 
   const addMessage = useCallback((msg: ChatMessage) => {
     setMessages(prev => [...prev, msg]);
@@ -185,29 +186,32 @@ export default function LessonChatShell({
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
 
-      // Inject into chat stream
-      setMessages(prev => {
-        const existingIds = new Set(prev.map(m => m.id));
-        const newMsgs: ChatMessage[] = toInjectIntoChat
-          .filter(c => !existingIds.has(c.id))
-          .map(c => {
-            const isReply = c.parent_id !== null; // reply to user's own comment
-            const isAdminReply = isReply && !c.is_own;
-            return {
-              id: c.id,
-              role: isAdminReply ? ('system' as const) : ('user' as const),
-              content: c.content,
-              type: 'text' as const,
-              timestamp: new Date(c.created_at),
-              avatarUrl:   isAdminReply ? '/logo.webp' : (c.avatar_url ?? null),
-              displayName: isAdminReply ? null : (c.display_name ?? null),
-              isReply,
-              status:      c.is_own
-                ? (c.status as 'pending' | 'approved' | 'rejected')
-                : undefined,
-            };
-          });
-        return [...prev, ...newMsgs];
+      // Inject into chat stream — wrapped in startTransition so this bulk
+      // state update is treated as non-urgent, preventing a layout-shift flicker.
+      startTransition(() => {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs: ChatMessage[] = toInjectIntoChat
+            .filter(c => !existingIds.has(c.id))
+            .map(c => {
+              const isReply = c.parent_id !== null; // reply to user's own comment
+              const isAdminReply = isReply && !c.is_own;
+              return {
+                id: c.id,
+                role: isAdminReply ? ('system' as const) : ('user' as const),
+                content: c.content,
+                type: 'text' as const,
+                timestamp: new Date(c.created_at),
+                avatarUrl:   isAdminReply ? '/logo.webp' : (c.avatar_url ?? null),
+                displayName: isAdminReply ? null : (c.display_name ?? null),
+                isReply,
+                status:      c.is_own
+                  ? (c.status as 'pending' | 'approved' | 'rejected')
+                  : undefined,
+              };
+            });
+          return [...prev, ...newMsgs];
+        });
       });
 
       // Others' approved + public top-level questions → community drawer

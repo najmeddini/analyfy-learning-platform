@@ -37,6 +37,40 @@ function PlainUserText({ text }: { text: string }) {
   );
 }
 
+/**
+ * Render admin-reply plain text with clickable URLs.
+ * Admin/instructor content is trusted — URLs become <a> tags.
+ * User content always goes through PlainUserText (no linkification).
+ */
+const URL_RE = /https?:\/\/[^\s<>"]+/g;
+function LinkifiedText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((match = URL_RE.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <a
+        key={match.index}
+        href={match[0]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-500 underline break-all"
+      >
+        {match[0]}
+      </a>
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return (
+    <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      {parts}
+    </span>
+  );
+}
+
 export default function ChatBubble({
   message,
   onQuizAnswer,
@@ -95,12 +129,17 @@ export default function ChatBubble({
 
   // ── System / admin-reply text ─────────────────────────────────────
   // ALL role='system' messages go through SystemBubble which FORCES /logo.webp.
-  // Admin replies (isReply=true) additionally get indentation + branded badge.
-  // URLs in system content are clickable (instructor-authored, trusted).
+  // Admin replies (isReply=true) are plain text typed in the admin panel —
+  //   use LinkifiedText so URLs become clickable <a> tags.
+  // Other system messages (lesson content, quiz feedback) are HTML from Notion —
+  //   keep LessonContent (dangerouslySetInnerHTML with trusted content).
   if (isSystem) {
     return (
       <SystemBubble isStreaming={isStreaming} isReply={!!message.isReply}>
-        <LessonContent content={message.content} />
+        {message.isReply
+          ? <LinkifiedText text={message.content} />
+          : <LessonContent content={message.content} />
+        }
       </SystemBubble>
     );
   }

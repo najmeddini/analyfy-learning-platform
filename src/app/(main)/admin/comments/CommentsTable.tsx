@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CheckCircle, XCircle, Clock, MessageSquarePlus, Send,
-  Search, CheckSquare, Square,
+  Search, CheckSquare, Square, Trash2,
 } from 'lucide-react';
-import { approveComment, rejectComment, replyAndApprove, bulkApproveComments } from './actions';
+import { approveComment, rejectComment, replyAndApprove, bulkApproveComments, deleteComment } from './actions';
 
 export type CommentRow = {
   id: string;
@@ -80,6 +80,28 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
     return true;
   });
 
+  // ── Threaded sort: each top-level row followed immediately by its replies ─
+  // Replies whose parent is filtered out fall through as standalone rows.
+  const allRowIds = new Set(rows.map(r => r.id));
+  const replyMap = new Map<string, CommentRow[]>();
+  const topLevelVisible: CommentRow[] = [];
+  for (const row of visible) {
+    if (row.parent_id && allRowIds.has(row.parent_id)) {
+      const arr = replyMap.get(row.parent_id) ?? [];
+      arr.push(row);
+      replyMap.set(row.parent_id, arr);
+    } else {
+      topLevelVisible.push(row);
+    }
+  }
+  const orderedRows: CommentRow[] = [];
+  for (const row of topLevelVisible) {
+    orderedRows.push(row);
+    for (const reply of (replyMap.get(row.id) ?? [])) {
+      orderedRows.push(reply);
+    }
+  }
+
   const counts = {
     pending:  rows.filter(r => r.status === 'pending').length,
     approved: rows.filter(r => r.status === 'approved').length,
@@ -128,6 +150,11 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
       setReplyingTo(null);
       setReplyText('');
     });
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm('این پاسخ حذف شود؟')) return;
+    startTransition(() => deleteComment(id));
   }
 
   function handleBulkApprove() {
@@ -306,7 +333,7 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
               </tr>
             </thead>
             <tbody>
-              {visible.map((row, i) => {
+              {orderedRows.map((row, i) => {
                 const st = STATUS_META[row.status] ?? STATUS_META.pending;
                 const isReplying = replyingTo === row.id;
                 const isReply = !!row.parent_id;
@@ -321,8 +348,9 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
                         backgroundColor: isSelected
                           ? '#eef2ff'
                           : isReply
-                            ? '#f0f9ff'
+                            ? '#f8f7ff'
                             : i % 2 === 0 ? 'white' : '#fafafa',
+                        borderRight: isReply ? '3px solid #6366f1' : undefined,
                       }}
                     >
                       {/* Checkbox */}
@@ -341,7 +369,9 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
                       {/* User */}
                       <td className="px-4 py-3 min-w-[140px]">
                         {isReply && (
-                          <span className="text-xs text-indigo-400 mb-0.5 block">↩ پاسخ ادمین</span>
+                          <span className="text-xs text-indigo-400 mb-0.5 block flex items-center gap-1">
+                            <span className="text-slate-300 font-mono">└</span> پاسخ ادمین
+                          </span>
                         )}
                         <p className="font-medium text-slate-700">
                           {row.profile?.display_name ?? <span className="text-slate-400 italic text-xs">کاربر ناشناس</span>}
@@ -428,6 +458,16 @@ export default function CommentsTable({ rows, distinctCourses, distinctLessons }
                               style={{ backgroundColor: isReplying ? '#6366f1' : '#8b5cf6' }}
                             >
                               <MessageSquarePlus size={11} /> پاسخ
+                            </button>
+                          )}
+                          {isReply && (
+                            <button
+                              onClick={() => handleDelete(row.id)}
+                              disabled={isPending}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                              style={{ backgroundColor: '#dc2626' }}
+                            >
+                              <Trash2 size={11} /> حذف
                             </button>
                           )}
                         </div>
