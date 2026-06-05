@@ -54,7 +54,7 @@ export default function GuestTeaser({ topicId }: Props) {
                 style={{ backgroundColor: 'var(--color-muted)' }}
               >
                 <p className="font-semibold text-xs mb-0.5" style={{ color: '#6c63ff' }}>
-                  {c.display_name ?? 'دانش‌آموز'}
+                  {c.display_name ?? 'دانشجو'}
                 </p>
                 <p className="line-clamp-2 leading-relaxed">{c.content}</p>
               </li>

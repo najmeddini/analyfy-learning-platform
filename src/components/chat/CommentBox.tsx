@@ -96,7 +96,7 @@ export default function CommentBox({ topicId, onDone }: CommentBoxProps) {
                 className="rounded"
                 style={{ accentColor: '#6c63ff' }}
               />
-              اجازه می‌دهم این نظر برای دانش‌آموزان دیگر نمایش داده شود
+              اجازه می‌دهم این نظر برای دانشجویان دیگر نمایش داده شود
             </label>
 
             {error && (

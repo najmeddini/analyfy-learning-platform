@@ -576,7 +576,7 @@ export default function LessonChatShell({
                           </div>
                         )}
                         <p className="text-xs font-semibold" style={{ color: '#6c63ff' }}>
-                          {c.display_name ?? 'دانش‌آموز'}
+                          {c.display_name ?? 'دانشجو'}
                         </p>
                         <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
                           {new Date(c.created_at).toLocaleDateString('fa-IR', {
@@ -616,7 +616,7 @@ export default function LessonChatShell({
                             className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
                             style={{ backgroundColor: r.is_admin_reply ? '#6c63ff' : '#94a3b8' }}
                           >
-                            {r.is_admin_reply ? 'پشتیبانی آنالیفای' : 'دانش‌آموز'}
+                            {r.is_admin_reply ? 'پشتیبانی آنالیفای' : 'دانشجو'}
                           </span>
                           <p className="text-xs mr-auto" style={{ color: 'var(--color-muted-foreground)' }}>
                             {new Date(r.created_at).toLocaleDateString('fa-IR', {

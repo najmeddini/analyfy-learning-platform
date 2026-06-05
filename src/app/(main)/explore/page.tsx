@@ -134,7 +134,7 @@ export default async function ExplorePage() {
                         <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
                           {courseStats.student_count > 0 && (
                             <span className="flex items-center gap-1">
-                              <Users size={11} /> {courseStats.student_count.toLocaleString('fa-IR')} دانش‌آموز
+                              <Users size={11} /> {courseStats.student_count.toLocaleString('fa-IR')} دانشجو
                             </span>
                           )}
                           {courseStats.comment_count > 0 && (
