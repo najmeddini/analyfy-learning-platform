@@ -1,89 +1,109 @@
 # PROJECT MEMORY — Unbreakable Rules
 > This file exists so Claude never forgets critical architectural decisions.
 > Read this before touching any of the files listed below.
+> Last updated: 2026-06-06
 
 ---
 
-## RULE 1 — Admin Panel (`/admin/comments/page.tsx`)
-- MUST use `createServiceClient()` (which uses `SUPABASE_SERVICE_ROLE_KEY`) to **bypass RLS completely**.
+## RULE 1 — Admin Panel queries (service role, `select('*')`)
+- ALL admin data-fetching pages (`/admin/comments`, `/admin/invites`, etc.) MUST use
+  the **vanilla `@supabase/supabase-js` client** with `SUPABASE_SERVICE_ROLE_KEY` to
+  bypass RLS completely.  Do NOT use `createServiceClient()` from `@supabase/ssr` —
+  it passes the session JWT alongside the service key which some Supabase configs
+  honour, restricting rows.
+  ```ts
+  import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+  const adminClient = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  ```
 - MUST use `select('*')` for the comments query — **never** an explicit column list.
-  - Reason: an explicit list like `select('id,...,course_id,lesson_id,parent_id')` will
-    return a Postgres 400 error if migration 007 hasn't been applied yet
-    (those columns don't exist). This silently empties the admin table.
-- Profiles are fetched in a **separate second query** and merged in JS — there is **no direct FK**
-  between `comments.user_id` and `profiles.user_id` in PostgREST.
-  Do NOT use `.select('*, profiles(...)')` — it will fail.
-- A missing profile MUST render as **"کاربر ناشناس"** — the `?? null` fallback in CommentsTable handles this.
+  Reason: an explicit list will error with Postgres 42703 if any migration hasn't run yet.
+- A missing profile MUST render as **"کاربر ناشناس"** — never crash on null profile.
 
-## RULE 2 — System/Admin Bubbles (`ChatBubble.tsx` → `SystemBubble`)
-- ALL system messages AND admin replies MUST use `<img src="/logo.webp" />` as the avatar.
+## RULE 2 — profiles table: PK is `user_id`, NOT `id`
+- `profiles` primary key is `user_id uuid` (references `auth.users(id)`).
+- There is **no `id` column** on `profiles`.
+- All foreign keys referencing profiles MUST be `REFERENCES profiles(user_id)`.
+- RLS policies on tables that join profiles MUST use `auth.uid()` directly:
+  ```sql
+  USING (user_id = auth.uid())   -- ✅ correct
+  USING (user_id = (SELECT id FROM profiles ...))  -- ❌ will error: column "id" doesn't exist
+  ```
+
+## RULE 3 — Profile enrichment: ALWAYS use service-role client
+- The RLS policy `"profiles: own read"` restricts `supabase.from('profiles')`
+  (anon/SSR client) to only the currently authenticated user's own row.
+- **Any** query that needs display_name/avatar_url for multiple users MUST use
+  the vanilla service-role client for the profiles sub-query.
+- PostgREST join `.select('*, profiles(display_name, avatar_url)')` does **NOT work** —
+  there is no direct FK between `comments.user_id` and `profiles.user_id`.
+  Always use the **two-query + JS merge pattern**:
+  ```ts
+  // 1. Fetch content with the regular client (respects RLS for content)
+  const { data: comments } = await supabase.from('comments').select(...);
+
+  // 2. Fetch profiles with service-role client (bypasses RLS)
+  const serviceClient = createSupabaseClient(URL, SERVICE_ROLE_KEY);
+  const { data: profiles } = await serviceClient
+    .from('profiles').select('user_id, display_name, avatar_url')
+    .in('user_id', userIds);
+
+  // 3. Merge in JS
+  const profileMap = Object.fromEntries(profiles.map(p => [p.user_id, p]));
+  ```
+- Add `export const dynamic = 'force-dynamic'` to every API route returning
+  user-generated content to prevent stale caches.
+
+## RULE 4 — System/Admin bubbles (`ChatBubble.tsx` → `SystemBubble`)
+- ALL system messages AND admin replies MUST use `<img src="/logo.webp" />` as avatar.
   **Never** use `message.avatarUrl` for system messages.
-- `isReply={true}` messages MUST be visually distinct:
-  - `mr-10` indentation (RTL-friendly)
-  - Background: `#eef2ff` (light indigo)
-  - Right border: `border-r-2 border-indigo-300`
-  - Purple pill badge **"پشتیبانی آنالیفای"** above reply text
-- Admin replies come from `loadComments()` in `LessonChatShell` where:
-  - `role = 'system'`, `isReply = true`, `avatarUrl = '/logo.webp'`
+- `isReply={true}` messages: indented (`mr-10`), background `#eef2ff`, right border
+  `border-r-2 border-indigo-300`, purple pill badge **"پشتیبانی آنالیفای"** above text.
+- Admin replies from `loadComments()`: `role='system'`, `isReply=true`, `avatarUrl='/logo.webp'`
+- Admin reply plain text → render via `<LinkifiedText>` (URLs become clickable `<a>`).
+- Lesson content / quiz feedback → render via `<LessonContent>` (trusted HTML).
+- User bubbles → render via `<PlainUserText>` (NO links, NO HTML — anti-spam).
+- Name header above user bubble: only shown when `message.status === undefined`
+  (i.e., someone else's message). Own messages always have status set → header hidden.
 
-## RULE 3 — Anti-Spam Link Handling (`ChatBubble.tsx`)
-- **User bubbles** (`role === 'user'`): render content via `<PlainUserText>` component.
-  - `white-space: pre-wrap`, `word-break: break-word`.
-  - NO `dangerouslySetInnerHTML`. NO markdown parsing. URLs stay as inert plain text.
-- **System/admin bubbles** (`role === 'system'`): render via `<LessonContent>` (trusted source).
-  - Uses `dangerouslySetInnerHTML`. Markdown links → `<a target="_blank">`.
+## RULE 5 — Pending status (`ChatMessage` + `ChatBubble.tsx`)
+- `ChatMessage.status?: 'pending' | 'approved' | 'rejected'` — only set for own messages.
+- `loadComments()`: MUST pass `status: c.status` for own comments. NEVER append
+  `"در انتظار تأیید..."` to `message.content`.
+- Optimistic message from `handleSendComment`: MUST have `status: 'pending'`.
+- Pending indicator renders **below** the bubble row as a separate `<span>`.
 
-## RULE 4 — Pending Status (`ChatMessage` type + `ChatBubble.tsx`)
-- `ChatMessage` has `status?: 'pending' | 'approved' | 'rejected'` field.
-- `LessonChatShell/loadComments`: MUST pass `status: c.status` for own comments.
-  **NEVER** concatenate `"در انتظار تأیید..."` into `message.content`.
-- `LessonChatShell/handleSendComment`: optimistic message MUST have `status: 'pending'`.
-- `ChatBubble`: render `<span className="text-xs text-slate-400 mr-9 mt-0.5">در انتظار تأیید...</span>`
-  **below** the bubble row (not inside the text), only when `message.status === 'pending'`.
+## RULE 6 — Invite system architecture
+- `profiles` has: `invite_code TEXT UNIQUE`, `invite_quota INT DEFAULT 10`,
+  `invited_by UUID REFERENCES profiles(user_id)`, `invite_created_at TIMESTAMPTZ`.
+- Invite code format: **7 chars** — up to 4 uppercase alphanumeric chars from email
+  local part (dots/dashes stripped via `regexp_replace`) + exactly 3 random digits.
+  Example: `a.najmeddini@gmail.com` → `ANAJ` + `832` → `ANAJ832`.
+- Collision handling: **`WHILE EXISTS` loop** — never use a fixed retry count.
+- Quota upgrade: reads `upgrade_levels` array from `system_settings` table
+  (`key = 'invite_rules'`), advances to the **next tier strictly above** current quota.
+  Upgrade only allowed within the **7-day window** (`now() - invite_created_at <= 7 days`).
+- `invited_by` is written by `auth/callback/route.ts` after OTP exchange,
+  passed as `?invited_by=<uuid>` query param in the magic-link redirect URL.
 
-## RULE 5 — Data Fetching: Always Bypass RLS for Profile Enrichment
-
-**DATA FETCHING RULE:** Whenever querying user-generated content (comments,
-replies, etc.) and then enriching it with author identity from `profiles`
-(display_name, avatar_url), the **profiles sub-query MUST use the vanilla
-`@supabase/supabase-js` service-role client**, never the SSR anon client.
-
-**Why:** The RLS policy `"profiles: own read"` restricts
-`supabase.from('profiles')` (anon/SSR client) to returning only the currently
-authenticated user's own row.  Queries for other users' profiles silently
-return empty — causing `display_name` and `avatar_url` to be `null` for every
-commenter except the viewer themselves.
-
-**Pattern (copy-paste template):**
-```ts
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-
-const serviceClient = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-const { data: profiles } = await serviceClient
-  .from('profiles')
-  .select('user_id, display_name, avatar_url')
-  .in('user_id', userIds);
-```
-
-**Also add** `export const dynamic = 'force-dynamic'` to any API route that
-returns user-generated content, to prevent stale cached responses.
-
-**PostgREST join note:** `.select('*, profiles(display_name, avatar_url)')` does
-NOT work — there is no direct FK between `comments.user_id` and `profiles.user_id`
-in PostgREST.  Always use the two-query + JS merge pattern.
+## RULE 7 — No `dark:` Tailwind classes
+- Light mode is forced globally. `@variant dark` is disabled in `globals.css`.
+- Never add `dark:` prefixed classes. All colours must be explicit light-only.
 
 ---
 
 ## Additional Invariants
 
 | Rule | File | Detail |
-|------|------|--------|
-| No `profiles(...)` join | All queries | FK goes `comments→auth.users` and `profiles→auth.users` — no direct join |
-| `/logo.webp` for system | `ChatBubble.tsx` | Never use adminProfile.avatar_url |
-| `select('*')` in admin | `admin/comments/page.tsx` | Robust against unrun migrations |
-| RTL layout | All UI | `dark:` Tailwind classes are disabled. `@variant dark` is disabled in globals.css |
-| Port 3001 | Dev | `npm run dev` — port hardcoded in package.json, never run without `-p 3001` |
-| Two-query profile merge | API routes + admin | Always separate queries, merge in JS |
+|---|---|---|
+| `profiles` PK = `user_id` | All migrations | Never `REFERENCES profiles(id)` |
+| No `profiles(...)` join | All queries | Two-query + JS merge always |
+| `/logo.webp` for system | `ChatBubble.tsx` | Never `message.avatarUrl` for system |
+| `select('*')` in admin | `admin/*/page.tsx` | Robust against unrun migrations |
+| 7-char invite codes | Trigger + backfill | `regexp_replace` strips dots before letters |
+| Service-role for profiles | `api/comments/route.ts` + admin | RLS bypass required |
+| `force-dynamic` | API routes with UGC | Prevents stale cache |
+| RTL layout | All UI | `dir="rtl"` on containers, no `dark:` |
+| Port 3001 | Dev | `-p 3001` in package.json, never omit |
