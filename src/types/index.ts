@@ -19,6 +19,11 @@ export interface Profile {
   website_url: string | null;
   expertise: string | null;
   created_at: string;
+  // Invite system (migration 009)
+  invite_code: string | null;
+  invite_quota: number;
+  invited_by: string | null;
+  invite_created_at: string;
 }
 
 export interface Organization {
